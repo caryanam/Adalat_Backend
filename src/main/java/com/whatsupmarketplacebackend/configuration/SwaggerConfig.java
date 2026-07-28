@@ -24,7 +24,7 @@ public class SwaggerConfig {
                         .description("REST API documentation for Marketing Agency Backend. Supports JWT Authentication, Client & Admin operations, Feedback management, and Enquiries.")
                         .contact(new Contact()
                                 .name("Car Yanam India Project Team")
-                                .email("support@caryanam.com"))
+                                .email("support@whatsupmarketplace.com"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))

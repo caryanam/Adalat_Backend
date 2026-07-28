@@ -57,10 +57,12 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         otpRepository.save(otpEntity);
 
-        // Send OTP via email
-        sendOtpEmail(email, otp, userName);
+        // Send OTP via email asynchronously to prevent blocking the HTTP response
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            sendOtpEmail(email, otp, userName);
+        });
 
-        log.info("OTP sent to email: {}", email);
+        log.info("OTP email sending initiated for: {}", email);
     }
 
     @Override
@@ -147,9 +149,9 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
-            helper.setFrom("support@caryanam.com");
+            helper.setFrom("support@whatsupmarketplace.com");
             helper.setTo(toEmail);
-            helper.setSubject("Marketing Agency â€“ Password Reset Request");
+            helper.setSubject("Whatsup Market Place - Password Reset Request");
             helper.setText(buildOtpEmailHtml(userName, otp), true);
 
             mailSender.send(mimeMessage);
@@ -194,7 +196,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 font-weight:700;
                 color:#ffffff;
                 letter-spacing:0.5px;">
-                Marketing Agency
+                Whatsup Market Place
                 </h1>
 
                 </td>
@@ -228,7 +230,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 color:#5f6368;">
 
                 We received a request to reset the password for your
-                <strong>Marketing Agency</strong> account.
+                <strong>Whatsup Market Place</strong> account.
 
                 To continue, please verify your identity using the One-Time Password (OTP) below.
 
@@ -300,7 +302,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 line-height:28px;
                 color:#5f6368;">
 
-                For your protection, Marketing Agency will never ask for your password or verification code via email, phone, or message.
+                For your protection, Whatsup Market Place will never ask for your password or verification code via email, phone, or message.
 
                 Please keep this code confidential and do not share it with anyone.
 
@@ -326,7 +328,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 color:#202124;">
 
                 Regards,<br>
-                <strong>Marketing Agency Security Team</strong>
+                <strong>Whatsup Market Place Security Team</strong>
 
                 </p>
 
@@ -346,7 +348,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 font-size:24px;
                 font-weight:600;
                 color:#ffffff;">
-                Marketing Agency
+                Whatsup Market Place
                 </h2>
 
                 <p style="
@@ -361,14 +363,14 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 margin:5px 0;
                 font-size:14px;
                 color:#F5FFF7;">
-                support@marketingagency.com
+                support@whatsupmarketplace.com
                 </p>
 
                 <p style="
                 margin:5px 0;
                 font-size:14px;
                 color:#F5FFF7;">
-                www.marketingagency.com
+                www.whatsupmarketplace.com
                 </p>
 
                 <hr style="
@@ -382,7 +384,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 line-height:24px;
                 color:#E8FFF0;">
 
-                Â© 2026 Marketing Agency. All rights reserved.
+                © 2026 Whatsup Marketplace. All rights reserved.
 
                 <br><br>
 
