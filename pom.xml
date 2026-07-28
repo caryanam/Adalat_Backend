@@ -8,10 +8,10 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.marketingagencybackend</groupId>
-	<artifactId>Marketing-agency-backend</artifactId>
+	<groupId>com.whatsupmarketplacebackend</groupId>
+	<artifactId>whatsup-marketplace-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
+	<name>whatsup-marketplace-backend</name>
 	<description/>
 	<url/>
 	<licenses>
