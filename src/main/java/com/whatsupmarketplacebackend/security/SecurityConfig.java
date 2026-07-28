@@ -1,4 +1,4 @@
-package com.whatsupmarketplacebackend.security;
+﻿package com.whatsupmarketplacebackend.security;
 
 import com.whatsupmarketplacebackend.dto.ApiResponseDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -158,7 +158,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("https://frontend-domain.com", "http://localhost:5173/"));
+        configuration.setAllowedOrigins(List.of("https://whatsupmarketplace.com/",
+                "https://whatsupmarketplace.com",
+                "http://localhost:5173/"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
