@@ -14,14 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/upload")
 @Tag(name = "Image Upload", description = "Endpoints for uploading campaign and template images (.png, .jpeg, .jpg up to 20MB)")
 public class ImageUploadController {
+
+    @Value("${app.base-url:https://api.whatsupmarketplace.com}")
+    private String baseUrl;
 
     private static final long MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
     private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList(
@@ -65,14 +74,26 @@ public class ImageUploadController {
         }
 
         try {
-            byte[] bytes = file.getBytes();
-            String mimeType = (contentType != null && !contentType.isBlank()) ? contentType : "image/jpeg";
-            String base64Image = Base64.getEncoder().encodeToString(bytes);
-            String dataUrl = "data:" + mimeType + ";base64," + base64Image;
+            // Create uploads directory if it does not exist
+            Path uploadDir = Paths.get("uploads");
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
 
-            log.info("Successfully processed uploaded image '{}' (Size: {} MB)", originalFilename, String.format("%.2f", file.getSize() / (1024.0 * 1024.0)));
+            // Generate unique filename
+            String ext = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String uniqueFilename = UUID.randomUUID().toString() + ext;
+            
+            // Save file to disk
+            Path filePath = uploadDir.resolve(uniqueFilename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Image uploaded successfully", dataUrl));
+            // Construct public URL
+            String publicUrl = baseUrl + "/uploads/" + uniqueFilename;
+
+            log.info("Successfully saved uploaded image '{}' to '{}' (Size: {} MB)", originalFilename, filePath.toString(), String.format("%.2f", file.getSize() / (1024.0 * 1024.0)));
+
+            return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Image uploaded successfully", publicUrl));
 
         } catch (Exception e) {
             log.error("Failed to process image upload: {}", e.getMessage(), e);
