@@ -1,6 +1,7 @@
 package com.whatsupmarketplacebackend.entity;
 
 import com.whatsupmarketplacebackend.enums.BusinessCategory;
+import com.whatsupmarketplacebackend.enums.ClientStatus;
 import com.whatsupmarketplacebackend.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,20 @@ public class Client {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.CLIENT;
+
+    // ============ NEW FIELDS FOR MARKETING PLATFORM ============
+
+    private String website;
+
+    @Column(columnDefinition = "TEXT")
+    private String address;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ClientStatus status = ClientStatus.ACTIVE;
+
+    // ============================================================
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

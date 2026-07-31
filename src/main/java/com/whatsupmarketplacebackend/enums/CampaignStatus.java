@@ -2,7 +2,10 @@ package com.whatsupmarketplacebackend.enums;
 
 public enum CampaignStatus {
     CREATED,
-    RUNNING,
+    QUEUED,
+    PROCESSING,
+    PAUSED,
     COMPLETED,
+    CANCELLED,
     FAILED
 }

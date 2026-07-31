@@ -1,13 +1,11 @@
 package com.whatsupmarketplacebackend.controller;
 
 import com.whatsupmarketplacebackend.dto.ApiResponseDTO;
-import com.whatsupmarketplacebackend.dto.request.CampaignRequestDTO;
 import com.whatsupmarketplacebackend.dto.request.PaymentApprovalRequestDTO;
 import com.whatsupmarketplacebackend.dto.request.PlanRequestDTO;
 import com.whatsupmarketplacebackend.dto.response.*;
 import com.whatsupmarketplacebackend.security.CustomUserDetails;
 import com.whatsupmarketplacebackend.service.AnalyticsService;
-import com.whatsupmarketplacebackend.service.CampaignService;
 import com.whatsupmarketplacebackend.service.ClientSubscriptionService;
 import com.whatsupmarketplacebackend.service.SubscriptionPlanService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,7 +28,6 @@ public class AdminSubscriptionController {
 
     private final SubscriptionPlanService planService;
     private final ClientSubscriptionService subscriptionService;
-    private final CampaignService campaignService;
     private final AnalyticsService analyticsService;
 
     // --- PLANS ---
@@ -93,21 +90,6 @@ public class AdminSubscriptionController {
 
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", message,
                 subscriptionService.approveOrRejectPayment(id, admin.getUsername(), request)));
-    }
-
-    // --- CAMPAIGNS ---
-
-    @PostMapping("/campaign")
-    @Operation(summary = "Create a new campaign for a client")
-    public ResponseEntity<ApiResponseDTO<CampaignResponseDTO>> createCampaign(@Valid @RequestBody CampaignRequestDTO request) {
-        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Campaign created successfully", campaignService.createCampaign(request)));
-    }
-
-
-    @GetMapping("/campaigns")
-    @Operation(summary = "Get all campaigns across all clients")
-    public ResponseEntity<ApiResponseDTO<List<CampaignResponseDTO>>> getAllCampaigns() {
-        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Campaigns fetched successfully", campaignService.getAllCampaigns()));
     }
 
     // --- ANALYTICS ---

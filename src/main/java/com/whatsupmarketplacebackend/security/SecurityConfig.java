@@ -1,4 +1,4 @@
-﻿package com.whatsupmarketplacebackend.security;
+package com.whatsupmarketplacebackend.security;
 
 import com.whatsupmarketplacebackend.dto.ApiResponseDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,7 +51,10 @@ public class SecurityConfig {
                         .requestMatchers("/auth/logout").authenticated()
                         .requestMatchers("/auth/**").permitAll()
 
-                        // 3. Public Client, Enquiry & Public Feedback Fetch Endpoints
+                        // 3. Webhook Endpoints (Public — Meta sends without auth)
+                        .requestMatchers("/api/webhook/**").permitAll()
+
+                        // 4. Public Client, Enquiry & Public Feedback Fetch Endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/client/registration",
                                 "/api/client/delete-account",
@@ -63,19 +66,28 @@ public class SecurityConfig {
                                 "/api/plans/**"
                         ).permitAll()
 
-                        // 4. Feedback Management Endpoints (CLIENT & ADMIN)
+                        // 5. Feedback Management Endpoints (CLIENT & ADMIN)
                         .requestMatchers(
                                 "/api/feedback/create/**",
                                 "/api/feedback/update/**",
                                 "/api/feedback/delete/**"
                         ).hasRole("CLIENT")
 
-                        // 5. Client Profile Operations (CLIENT & ADMIN)
+                        // 6. Client Profile Operations (CLIENT & ADMIN)
                         .requestMatchers(
                                 "/api/client/**"
                         ).hasAnyRole("CLIENT", "ADMIN")
 
-                        // 6. Subscription & Billing Operations (CLIENT & ADMIN)
+                        // 7. Template Management (ADMIN for mutations, both for reads)
+                        .requestMatchers(HttpMethod.POST, "/api/templates/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/templates/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/templates/**").hasAnyRole("CLIENT", "ADMIN")
+
+                        // 8. Campaign Management (ADMIN for lifecycle, both for reads)
+                        .requestMatchers(HttpMethod.POST, "/api/campaigns/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/campaigns/**").hasAnyRole("CLIENT", "ADMIN")
+
+                        // 9. Subscription & Billing Operations (CLIENT & ADMIN)
                         .requestMatchers(
                                 "/api/subscription/**",
                                 "/api/customer-data/client/**",
@@ -95,10 +107,10 @@ public class SecurityConfig {
                                 "/api/payment/**"
                         ).hasRole("CLIENT")
 
-                        // 7. Admin Management Operations (ADMIN Only)
+                        // 10. Admin Management Operations (ADMIN Only)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // 8. All other requests require authentication
+                        // 11. All other requests require authentication
                         .anyRequest().authenticated()
                 )
 
@@ -160,6 +172,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("https://whatsupmarketplace.com/",
                 "https://whatsupmarketplace.com",
+                "https://api.whatsupmarketplace.com",
                 "http://localhost:5173/"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));

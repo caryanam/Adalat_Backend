@@ -34,6 +34,7 @@ public class PasswordResetOtp {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
+    @Builder.Default
     @Column(nullable = false)
     private Boolean verified = false;
 }

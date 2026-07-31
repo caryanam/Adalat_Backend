@@ -26,7 +26,7 @@ public class CustomerDataController {
 
     private final CustomerDataService customerDataService;
 
-    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/import/{clientId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Import customer data from an excel sheet (.xlsx/.xls)", description = "Access Level: Protected [Required Role: ADMIN]")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Excel data imported successfully"),
@@ -34,8 +34,8 @@ public class CustomerDataController {
             @ApiResponse(responseCode = "403", description = "Forbidden - Admin role required")
     })
     public ResponseEntity<ApiResponseDTO<ExcelImportResponseDTO>> importCustomerData(
+            @PathVariable("clientId") Long clientId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("clientId") Long clientId,
             @RequestParam("businessCategory") com.whatsupmarketplacebackend.enums.BusinessCategory businessCategory) {
 
         log.info("User importing customer data from file: {} for clientId: {} and category: {}", file.getOriginalFilename(), clientId, businessCategory);

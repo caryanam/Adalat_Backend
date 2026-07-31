@@ -10,7 +10,7 @@ import com.whatsupmarketplacebackend.security.CustomUserDetails;
 import com.whatsupmarketplacebackend.service.ClientSubscriptionService;
 import com.whatsupmarketplacebackend.service.SubscriptionPlanService;
 import com.whatsupmarketplacebackend.service.CampaignService;
-import com.whatsupmarketplacebackend.dto.response.CampaignResponseDTO;
+import com.whatsupmarketplacebackend.dto.response.CampaignDetailResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -107,7 +107,7 @@ public class ClientSubscriptionController {
 
     @GetMapping("/subscription/campaigns")
     @Operation(summary = "Get current client's campaigns")
-    public ResponseEntity<ApiResponseDTO<List<CampaignResponseDTO>>> getClientCampaigns(
+    public ResponseEntity<ApiResponseDTO<List<CampaignDetailResponseDTO>>> getClientCampaigns(
             @AuthenticationPrincipal CustomUserDetails client,
             @RequestParam(required = false) Long clientId) {
         Long targetId = (clientId != null && client.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) ? clientId : client.getId();

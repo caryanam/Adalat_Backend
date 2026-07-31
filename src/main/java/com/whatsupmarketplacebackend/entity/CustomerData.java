@@ -8,13 +8,14 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "customer_data", 
+@Table(name = "customer_data",
        uniqueConstraints = {
            @UniqueConstraint(columnNames = {"client_id", "whatsapp_number"})
        },
        indexes = {
            @Index(name = "idx_client_id", columnList = "client_id"),
-           @Index(name = "idx_client_business", columnList = "client_id, business_category")
+           @Index(name = "idx_client_business", columnList = "client_id, business_category"),
+           @Index(name = "idx_import_batch", columnList = "import_batch_id")
        }
 )
 @Getter
@@ -41,6 +42,23 @@ public class CustomerData {
     @Enumerated(EnumType.STRING)
     @Column(name = "business_category")
     private BusinessCategory businessCategory;
+
+    // ============ NEW FIELDS FOR MARKETING PLATFORM ============
+
+    private String city;
+
+    private String state;
+
+    @Column(name = "business_name")
+    private String businessName;
+
+    @Column(name = "dynamic_fields", columnDefinition = "JSON")
+    private String dynamicFields;
+
+    @Column(name = "import_batch_id")
+    private String importBatchId;
+
+    // ============================================================
 
     @CreationTimestamp
     @Column(updatable = false)

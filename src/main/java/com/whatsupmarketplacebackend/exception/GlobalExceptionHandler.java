@@ -257,4 +257,28 @@ public class GlobalExceptionHandler {
             CampaignException ex) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
+
+    //Queue Exception
+    @ExceptionHandler(QueueException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleQueueException(
+            QueueException ex) {
+        log.error("Queue processing error", ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Queue processing error: " + ex.getMessage());
+    }
+
+    //Meta API Exception
+    @ExceptionHandler(MetaApiException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleMetaApiException(
+            MetaApiException ex) {
+        log.error("Meta WhatsApp API error", ex);
+        return build(HttpStatus.BAD_GATEWAY, "WhatsApp API error: " + ex.getMessage());
+    }
+
+    //Webhook Exception
+    @ExceptionHandler(WebhookException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleWebhookException(
+            WebhookException ex) {
+        log.error("Webhook processing error", ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Webhook error: " + ex.getMessage());
+    }
 }
