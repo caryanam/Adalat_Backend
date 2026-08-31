@@ -1,4 +1,4 @@
-package com.adalat.service.serviceImpl;
+package com.adalat.serviceImpl;
 
 import com.adalat.service.FileStorageService;
 import lombok.extern.slf4j.Slf4j;
@@ -22,31 +22,13 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     private static final java.util.Set<String> ALLOWED_EXTENSIONS =
-            java.util.Set.of("pdf", "jpg", "jpeg", "png");
+            java.util.Set.of("pdf", "jpg", "jpeg", "png", "doc", "docx");
 
     @Override
     public String storeFile(Long lawyerId, MultipartFile file) throws IOException {
-        // Validate file not empty
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Uploaded file must not be empty.");
-        }
+        validateFile(file);
 
-        // Validate file size
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds the maximum allowed limit of 10MB.");
-        }
-
-        // Validate extension
-        String originalFileName = file.getOriginalFilename();
-        if (originalFileName == null || originalFileName.isBlank()) {
-            throw new IllegalArgumentException("File name is invalid.");
-        }
-
-        String extension = getExtension(originalFileName).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new IllegalArgumentException(
-                    "File type not allowed. Allowed types: PDF, JPG, JPEG, PNG.");
-        }
+        String extension = getExtension(file.getOriginalFilename()).toLowerCase();
 
         // Build lawyer-specific directory: uploads/lawyers/{lawyerId}/
         Path lawyerDir = Paths.get(lawyerUploadDir, String.valueOf(lawyerId));
@@ -58,17 +40,54 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         // Write file to disk
         Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-        log.info("File stored: {}", targetPath.toAbsolutePath());
+        log.info("Lawyer file stored: {}", targetPath.toAbsolutePath());
 
         // Build and return HTTP-accessible URL
-        // e.g. http://localhost:8082/uploads/lawyers/1/abc123.pdf
-        String fileUrl = baseUrl + "/" + lawyerUploadDir + "/" + lawyerId + "/" + storedFileName;
-        return fileUrl;
+        return baseUrl + "/" + lawyerUploadDir + "/" + lawyerId + "/" + storedFileName;
+    }
+
+    @Override
+    public String storeCustomerLegalDocument(Long customerId, Long sessionId, MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String extension = getExtension(file.getOriginalFilename()).toLowerCase();
+
+        // Build customer legal assistance directory: uploads/customers/{customerId}/legal-assistance/{sessionId}/
+        Path sessionDir = Paths.get("uploads", "customers", String.valueOf(customerId), "legal-assistance", String.valueOf(sessionId));
+        Files.createDirectories(sessionDir);
+
+        String storedFileName = UUID.randomUUID().toString().replace("-", "") + "." + extension;
+        Path targetPath = sessionDir.resolve(storedFileName);
+
+        Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Customer legal document stored: {}", targetPath.toAbsolutePath());
+
+        return baseUrl + "/uploads/customers/" + customerId + "/legal-assistance/" + sessionId + "/" + storedFileName;
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Uploaded file must not be empty.");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("File size exceeds the maximum allowed limit of 10MB.");
+        }
+
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || originalFileName.isBlank()) {
+            throw new IllegalArgumentException("File name is invalid.");
+        }
+
+        String extension = getExtension(originalFileName).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException(
+                    "File type not allowed. Allowed types: PDF, JPG, JPEG, PNG, DOC, DOCX.");
+        }
     }
 
     @Override
     public String getStoredFileName(String fileUrl) {
-        // Extract the last segment of the URL
         return fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
     }
 

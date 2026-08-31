@@ -1,4 +1,4 @@
-package com.adalat.service.serviceImpl;
+package com.adalat.serviceImpl;
 
 import com.adalat.dto.*;
 import com.adalat.entity.Customer;

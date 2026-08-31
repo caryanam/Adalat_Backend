@@ -27,6 +27,15 @@ public class LawyerRegistrationController {
                         response));
     }
 
+    // ─── GET Lawyer Registration Progress ────────────────────────────────────
+    @GetMapping("/{lawyerId}")
+    public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> getRegistrationProgress(
+            @PathVariable Long lawyerId) {
+
+        LawyerProfileResponseDTO response = lawyerService.getLawyerById(lawyerId);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Lawyer registration details retrieved.", response));
+    }
+
     // ─── STEP 2 — Professional Details ────────────────────────────────────────
     @PutMapping("/{lawyerId}/step2")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> step2(

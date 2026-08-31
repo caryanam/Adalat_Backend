@@ -1,4 +1,4 @@
-package com.adalat.service.serviceImpl;
+package com.adalat.serviceImpl;
 
 import com.adalat.dto.*;
 import com.adalat.entity.Lawyer;
@@ -176,29 +176,6 @@ public class LawyerServiceImpl implements LawyerService {
             throw new BadCredentialsException("Invalid password.");
         }
 
-        // Registration submitted?
-        if (lawyer.getRegistrationStatus() != RegistrationStatus.SUBMITTED) {
-            throw new LawyerNotApprovedException(
-                    "Your registration is incomplete. Please complete all 6 steps and submit.");
-        }
-
-        // Verification status checks
-        if (lawyer.getVerificationStatus() == VerificationStatus.PENDING) {
-            throw new LawyerNotApprovedException(
-                    "Your application is pending admin verification.");
-        }
-        if (lawyer.getVerificationStatus() == VerificationStatus.REJECTED) {
-            throw new LawyerNotApprovedException(
-                    "Your application has been rejected. Reason: " +
-                    (lawyer.getRejectionReason() != null ? lawyer.getRejectionReason() : "No reason provided."));
-        }
-
-        // Account active check
-        if (lawyer.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new LawyerNotApprovedException(
-                    "Your account is not active. Please contact support.");
-        }
-
         // Generate JWT
         CustomUserDetails userDetails = new CustomUserDetails(
                 lawyer.getLawyerId(),
@@ -209,7 +186,7 @@ public class LawyerServiceImpl implements LawyerService {
         );
         String token = jwtService.generateAccessToken(userDetails);
 
-        log.info("Lawyer login successful: id={}", lawyer.getLawyerId());
+        log.info("Lawyer login successful: id={}, status={}", lawyer.getLawyerId(), lawyer.getRegistrationStatus());
 
         return LawyerLoginResponseDTO.builder()
                 .token(token)
@@ -310,3 +287,4 @@ public class LawyerServiceImpl implements LawyerService {
                 .build();
     }
 }
+

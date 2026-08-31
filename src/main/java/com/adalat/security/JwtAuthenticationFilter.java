@@ -4,7 +4,7 @@ import com.adalat.enums.Role;
 import com.adalat.repository.AdminRepository;
 import com.adalat.repository.CustomerRepository;
 import com.adalat.repository.LawyerRepository;
-import com.adalat.service.serviceImpl.TokenBlacklistService;
+import com.adalat.serviceImpl.TokenBlacklistService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;

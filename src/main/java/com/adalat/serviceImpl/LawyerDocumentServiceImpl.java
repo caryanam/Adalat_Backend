@@ -1,4 +1,4 @@
-package com.adalat.service.serviceImpl;
+package com.adalat.serviceImpl;
 
 import com.adalat.dto.LawyerDocumentResponseDTO;
 import com.adalat.entity.Lawyer;

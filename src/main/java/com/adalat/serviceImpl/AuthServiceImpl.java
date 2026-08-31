@@ -1,4 +1,4 @@
-package com.adalat.service.serviceImpl;
+package com.adalat.serviceImpl;
 
 import com.adalat.dto.AuthResponseDTO;
 import com.adalat.dto.LoginRequestDTO;
