@@ -1,0 +1,14 @@
+package com.adalat.enums;
+
+public enum PracticeArea {
+    PROPERTY_LAW,
+    CRIMINAL_LAW,
+    FAMILY_LAW,
+    CIVIL_DISPUTES,
+    CONSUMER_LAW,
+    EMPLOYMENT_LAW,
+    CYBERCRIME,
+    BANKING_AND_FINANCE,
+    CORPORATE_LAW,
+    MATRIMONIAL_MATTERS
+}

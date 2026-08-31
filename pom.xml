@@ -8,10 +8,10 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.whatsupmarketplacebackend</groupId>
-	<artifactId>whatsup-marketplace-backend</artifactId>
+	<groupId>com.adalatbackend</groupId>
+	<artifactId>adalat-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>whatsup-marketplace-backend</name>
+	<name>adalat-backend</name>
 	<description/>
 	<url/>
 	<licenses>
