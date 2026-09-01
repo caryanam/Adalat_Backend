@@ -16,11 +16,7 @@ public class LawyerDocumentController {
 
     private final LawyerDocumentService lawyerDocumentService;
 
-    /**
-     * STEP 3 — Upload a document for a specific lawyer.
-     * Content-Type: multipart/form-data
-     * Params: documentType (enum), file (MultipartFile)
-     */
+
     @PostMapping("/{lawyerId}/documents")
     public ResponseEntity<ApiResponseDTO<LawyerDocumentResponseDTO>> uploadDocument(
             @PathVariable Long lawyerId,

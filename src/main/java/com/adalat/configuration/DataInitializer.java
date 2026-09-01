@@ -23,19 +23,5 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("Checking database initialization...");
 
-        // 1. Admin Account
-
-        if (adminRepository.findByEmail("admin@gmail.com").isEmpty()) {
-            Admin admin = Admin.builder()
-                    .fullName("System Admin")
-                    .email("admin@gmail.com")
-                    .mobileNumber("9867865788")
-                    .password(passwordEncoder.encode("admin@123"))
-                    .build();
-            adminRepository.save(admin);
-        }
-        log.info("Default admins seeded.");
-
-
     }
 }

@@ -16,11 +16,19 @@ public interface ConsultationRequestRepository extends JpaRepository<Consultatio
 
     List<ConsultationRequest> findByCustomerOrderByCreatedAtDesc(Customer customer);
 
+    List<ConsultationRequest> findByCustomerAndStatusInOrderByCreatedAtDesc(Customer customer, List<ConsultationRequestStatus> statuses);
+
     List<ConsultationRequest> findByLawyerOrderByCreatedAtDesc(Lawyer lawyer);
 
     List<ConsultationRequest> findByLawyerAndStatusOrderByCreatedAtDesc(Lawyer lawyer, ConsultationRequestStatus status);
 
+    List<ConsultationRequest> findByLawyerAndStatusInOrderByCreatedAtDesc(Lawyer lawyer, List<ConsultationRequestStatus> statuses);
+
     List<ConsultationRequest> findByLegalSession(LegalAssistanceSession legalSession);
 
     Optional<ConsultationRequest> findByLegalSessionAndLawyer(LegalAssistanceSession legalSession, Lawyer lawyer);
+
+    Optional<ConsultationRequest> findByIdAndCustomer(Long id, Customer customer);
+
+    Optional<ConsultationRequest> findByIdAndLawyer(Long id, Lawyer lawyer);
 }

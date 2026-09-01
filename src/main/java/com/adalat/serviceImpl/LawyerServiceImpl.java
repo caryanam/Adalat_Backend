@@ -176,6 +176,16 @@ public class LawyerServiceImpl implements LawyerService {
             throw new BadCredentialsException("Invalid password.");
         }
 
+        // Verification and account active gate
+        if (lawyer.getVerificationStatus() == VerificationStatus.PENDING) {
+            throw new LawyerNotApprovedException("Your application is currently under verification by the admin team. Please check back later.");
+        } else if (lawyer.getVerificationStatus() == VerificationStatus.REJECTED) {
+            String reason = lawyer.getRejectionReason() != null ? ": " + lawyer.getRejectionReason() : ".";
+            throw new LawyerNotApprovedException("Your advocate verification was not approved" + reason);
+        } else if (lawyer.getVerificationStatus() != VerificationStatus.APPROVED || lawyer.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new LawyerNotApprovedException("Your account is not active. Please complete your registration and wait for admin approval.");
+        }
+
         // Generate JWT
         CustomUserDetails userDetails = new CustomUserDetails(
                 lawyer.getLawyerId(),
@@ -280,6 +290,10 @@ public class LawyerServiceImpl implements LawyerService {
                 .registrationStatus(lawyer.getRegistrationStatus())
                 .verificationStatus(lawyer.getVerificationStatus())
                 .accountStatus(lawyer.getAccountStatus())
+                .available(lawyer.getAvailable() != null ? lawyer.getAvailable() : true)
+                .rating(lawyer.getRating() != null ? lawyer.getRating() : 4.8)
+                .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
+                .profilePhotoUrl(lawyer.getProfilePhotoUrl())
                 .rejectionReason(lawyer.getRejectionReason())
                 .documents(docDTOs)
                 .createdAt(lawyer.getCreatedAt())

@@ -1,5 +1,6 @@
 package com.adalat.repository;
 
+import com.adalat.entity.ConsultationRequest;
 import com.adalat.entity.Customer;
 import com.adalat.entity.PaymentTransaction;
 import com.adalat.enums.PaymentStatus;
@@ -17,4 +18,8 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransaction> findByCustomer(Customer customer);
 
     Optional<PaymentTransaction> findByCustomerAndStatus(Customer customer, PaymentStatus status);
+
+    Optional<PaymentTransaction> findByConsultationRequestAndStatus(ConsultationRequest request, PaymentStatus status);
+
+    List<PaymentTransaction> findByConsultationRequest(ConsultationRequest request);
 }

@@ -38,7 +38,7 @@ public class Lawyer {
     @Column(nullable = false)
     private String password;
 
-    // ─── Step 2 — Professional ────────────────────────────────────────────────
+    // ─── Step 2 — Professional ───────
     private String barEnrollmentNumber;
 
     private Integer yearsOfExperience;
@@ -96,6 +96,18 @@ public class Lawyer {
     @Column(nullable = false)
     @Builder.Default
     private AccountStatus accountStatus = AccountStatus.INACTIVE;
+
+    // ─── Profile Enhancements ────────────────────────────────────────────────
+    @Builder.Default
+    private Boolean available = true;
+
+    @Builder.Default
+    private Double rating = 4.8;
+
+    @Builder.Default
+    private Integer totalConsultations = 0;
+
+    private String profilePhotoUrl;
 
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;

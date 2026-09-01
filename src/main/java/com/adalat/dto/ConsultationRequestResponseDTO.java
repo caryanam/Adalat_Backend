@@ -30,6 +30,9 @@ public class ConsultationRequestResponseDTO {
     private ConsultationRequestStatus status;
     private String lawyerNotes;
     private String nextStepInstruction;
+    private LocalDateTime scheduledAt;
+    private java.math.BigDecimal paymentAmount;
+    private com.adalat.enums.PaymentStatus paymentStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

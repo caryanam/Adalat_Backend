@@ -71,6 +71,11 @@ public class LawyerMatchingServiceImpl implements LawyerMatchingService {
                     .languages(lawyer.getLanguages())
                     .consultationRate(lawyer.getConsultationRate() != null ? lawyer.getConsultationRate().getAmount() : 99)
                     .verificationStatus(lawyer.getVerificationStatus())
+                    .bio(lawyer.getBio())
+                    .rating(lawyer.getRating() != null ? lawyer.getRating() : 4.8)
+                    .available(lawyer.getAvailable() != null ? lawyer.getAvailable() : true)
+                    .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
+                    .profilePhotoUrl(lawyer.getProfilePhotoUrl())
                     .matchScore(finalScore)
                     .matchingReason(reason)
                     .build());
@@ -97,6 +102,11 @@ public class LawyerMatchingServiceImpl implements LawyerMatchingService {
                             .languages(l.getLanguages())
                             .consultationRate(l.getConsultationRate() != null ? l.getConsultationRate().getAmount() : 99)
                             .verificationStatus(l.getVerificationStatus())
+                            .bio(l.getBio())
+                            .rating(l.getRating() != null ? l.getRating() : 4.8)
+                            .available(l.getAvailable() != null ? l.getAvailable() : true)
+                            .totalConsultations(l.getTotalConsultations() != null ? l.getTotalConsultations() : 0)
+                            .profilePhotoUrl(l.getProfilePhotoUrl())
                             .matchScore(s.getMatchScore())
                             .matchingReason(s.getMatchingReason())
                             .build();

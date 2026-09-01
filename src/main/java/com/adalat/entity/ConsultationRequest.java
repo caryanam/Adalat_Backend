@@ -52,6 +52,10 @@ public class ConsultationRequest {
     @Column(columnDefinition = "TEXT")
     private String lawyerNotes;
 
+    private LocalDateTime scheduledAt;
+
+    private java.math.BigDecimal paymentAmount;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

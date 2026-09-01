@@ -26,12 +26,20 @@ public class PaymentTransaction {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "consultation_request_id")
+    private ConsultationRequest consultationRequest;
+
     @Column(nullable = false, unique = true)
     private String orderId;  // Generated internally or from payment gateway
 
     @Column(nullable = false)
     @Builder.Default
     private BigDecimal amount = new BigDecimal("99.00");
+
+    @Column(length = 50)
+    @Builder.Default
+    private String paymentType = "REGISTRATION";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
