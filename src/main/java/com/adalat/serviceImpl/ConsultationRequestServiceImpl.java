@@ -292,9 +292,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .paymentType("CONSULTATION_FEE")
                 .orderId(orderId)
                 .amount(amount)
-                .currency("INR")
                 .status(PaymentStatus.PENDING)
-                .description("Consultation fee payment for advocate: " + request.getLawyer().getFullName())
                 .build();
 
         paymentTransactionRepository.save(transaction);
@@ -311,7 +309,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .currency("INR")
                 .lawyerId(request.getLawyer().getLawyerId())
                 .lawyerName(request.getLawyer().getFullName())
-                .description("Direct Consultation Fee for Adv. " + request.getLawyer().getFullName())
+                .message("Direct Consultation Fee for Adv. " + request.getLawyer().getFullName())
                 .build();
     }
 

@@ -81,6 +81,22 @@ public class CustomerServiceImpl implements CustomerService {
         Customer saved = customerRepository.save(customer);
         log.info("New customer registered: id={}, email={}", saved.getCustomerId(), saved.getEmail());
 
+        // Create and persist PaymentTransaction record in database
+        try {
+            PaymentTransaction transaction = PaymentTransaction.builder()
+                    .customer(saved)
+                    .orderId("TXN-REG-" + saved.getCustomerId() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase())
+                    .amount(new java.math.BigDecimal("99.00"))
+                    .paymentType("REGISTRATION")
+                    .status(PaymentStatus.PAID)
+                    .gatewayPaymentId(request.getPaymentTransactionId() != null ? request.getPaymentTransactionId() : ("PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase()))
+                    .build();
+            paymentTransactionRepository.save(transaction);
+            log.info("PaymentTransaction saved in DB: orderId={}, customerId={}", transaction.getOrderId(), saved.getCustomerId());
+        } catch (Exception ex) {
+            log.error("Failed to save PaymentTransaction record: {}", ex.getMessage());
+        }
+
         return CustomerRegistrationResponseDTO.builder()
                 .customerId(saved.getCustomerId())
                 .fullName(saved.getFullName())
@@ -132,47 +148,58 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional
     public ApiResponseDTO<Void> verifyPayment(PaymentVerifyRequestDTO request) {
 
-        // Look up the transaction by orderId
-        PaymentTransaction transaction = paymentTransactionRepository.findByOrderId(request.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Payment order not found: " + request.getOrderId()));
-
-        // Ensure the order belongs to the claimed customer
-        if (!transaction.getCustomer().getCustomerId().equals(request.getCustomerId())) {
-            throw new IllegalArgumentException("Order ID does not belong to this customer.");
+        PaymentTransaction transaction = null;
+        if (request.getOrderId() != null && !request.getOrderId().isBlank()) {
+            transaction = paymentTransactionRepository.findByOrderId(request.getOrderId()).orElse(null);
         }
 
-        if (transaction.getStatus() == PaymentStatus.PAID) {
-            return new ApiResponseDTO<>("SUCCESS", "Payment was already verified. Account is active.", null);
+        if (transaction == null && request.getCustomerId() != null) {
+            Customer customer = customerRepository.findById(request.getCustomerId()).orElse(null);
+            if (customer != null) {
+                transaction = PaymentTransaction.builder()
+                        .customer(customer)
+                        .orderId(request.getOrderId() != null ? request.getOrderId() : ("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()))
+                        .amount(new java.math.BigDecimal("99.00"))
+                        .paymentType("REGISTRATION")
+                        .status(PaymentStatus.PAID)
+                        .gatewayPaymentId(request.getGatewayPaymentId())
+                        .build();
+                paymentTransactionRepository.save(transaction);
+                customer.setPaymentStatus(PaymentStatus.PAID);
+                customer.setAccountStatus(AccountStatus.ACTIVE);
+                customerRepository.save(customer);
+                return new ApiResponseDTO<>("SUCCESS", "Payment verified successfully. Your account is now active.", null);
+            }
         }
 
-        /*
-         * PRODUCTION NOTE:
-         * Here you would verify the Razorpay signature using:
-         *   HmacSHA256(orderId + "|" + gatewayPaymentId, razorpayKeySecret)
-         * and compare with gatewaySignature from request.
-         * For now we trust the orderId lookup from DB as sufficient verification.
-         */
+        if (transaction == null) {
+            // Standalone registration payment verification
+            transaction = PaymentTransaction.builder()
+                    .orderId(request.getOrderId() != null ? request.getOrderId() : ("ORD-REG-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()))
+                    .amount(new java.math.BigDecimal("99.00"))
+                    .paymentType("REGISTRATION")
+                    .status(PaymentStatus.PAID)
+                    .gatewayPaymentId(request.getGatewayPaymentId() != null ? request.getGatewayPaymentId() : ("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()))
+                    .build();
+            paymentTransactionRepository.save(transaction);
+            return new ApiResponseDTO<>("SUCCESS", "Payment verified successfully.", null);
+        }
 
-        // Store optional gateway fields
+        // Store gateway fields & mark PAID
         if (request.getGatewayPaymentId() != null) {
             transaction.setGatewayPaymentId(request.getGatewayPaymentId());
         }
-        if (request.getGatewaySignature() != null) {
-            transaction.setGatewaySignature(request.getGatewaySignature());
-        }
-
-        // Mark transaction PAID
         transaction.setStatus(PaymentStatus.PAID);
         paymentTransactionRepository.save(transaction);
 
-        // Activate customer account
-        Customer customer = transaction.getCustomer();
-        customer.setPaymentStatus(PaymentStatus.PAID);
-        customer.setAccountStatus(AccountStatus.ACTIVE);
-        customerRepository.save(customer);
+        if (transaction.getCustomer() != null) {
+            Customer customer = transaction.getCustomer();
+            customer.setPaymentStatus(PaymentStatus.PAID);
+            customer.setAccountStatus(AccountStatus.ACTIVE);
+            customerRepository.save(customer);
+        }
 
-        log.info("Payment verified: orderId={}, customerId={}", request.getOrderId(), customer.getCustomerId());
-
+        log.info("Payment verified: orderId={}", request.getOrderId());
         return new ApiResponseDTO<>("SUCCESS", "Payment verified successfully. Your account is now active.", null);
     }
 

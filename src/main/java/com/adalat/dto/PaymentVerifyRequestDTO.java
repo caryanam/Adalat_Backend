@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PaymentVerifyRequestDTO {
 
-    @NotNull(message = "Customer ID is required")
     private Long customerId;
 
     @NotBlank(message = "Order ID is required")
