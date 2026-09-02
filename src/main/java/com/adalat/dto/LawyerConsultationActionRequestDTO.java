@@ -8,5 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 public class LawyerConsultationActionRequestDTO {
 
+    private String assignedDate;
+    private String assignedTime;
     private String notes;
 }

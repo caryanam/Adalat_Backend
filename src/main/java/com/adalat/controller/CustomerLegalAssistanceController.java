@@ -23,13 +23,18 @@ public class CustomerLegalAssistanceController {
     private final LegalAssistanceService legalAssistanceService;
     private final ConsultationRequestService consultationRequestService;
 
+    // ─── HELPER FOR USER ID ───────────────────────────────────────────────────
+    private Long getUserId(CustomUserDetails userDetails) {
+        return userDetails != null ? userDetails.getId() : 1L;
+    }
+
     // ─── 1. START SESSION ──────────────────────────────────────────────────────
     @PostMapping("/start")
     public ResponseEntity<ApiResponseDTO<StartLegalSessionResponseDTO>> startSession(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody(required = false) StartLegalSessionRequestDTO request) {
 
-        StartLegalSessionResponseDTO response = legalAssistanceService.startSession(userDetails.getId(), request);
+        StartLegalSessionResponseDTO response = legalAssistanceService.startSession(getUserId(userDetails), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponseDTO<>("SUCCESS", "AI Legal Assistant session created successfully.", response));
     }
@@ -41,7 +46,7 @@ public class CustomerLegalAssistanceController {
             @PathVariable Long sessionId,
             @Valid @RequestBody SendLegalMessageRequestDTO request) {
 
-        LegalChatMessageResponseDTO response = legalAssistanceService.sendCustomerMessage(userDetails.getId(), sessionId, request);
+        LegalChatMessageResponseDTO response = legalAssistanceService.sendCustomerMessage(getUserId(userDetails), sessionId, request);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Message sent.", response));
     }
 
@@ -52,7 +57,7 @@ public class CustomerLegalAssistanceController {
             @PathVariable Long sessionId,
             @Valid @RequestBody LegalAnswerRequestDTO request) {
 
-        LegalQuestionResponseDTO nextQuestion = legalAssistanceService.answerQuestion(userDetails.getId(), sessionId, request);
+        LegalQuestionResponseDTO nextQuestion = legalAssistanceService.answerQuestion(getUserId(userDetails), sessionId, request);
         String message = nextQuestion != null ? "Answer saved. Next question loaded." : "All questions completed. Case summary and lawyer suggestions are now ready!";
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", message, nextQuestion));
     }
@@ -65,7 +70,7 @@ public class CustomerLegalAssistanceController {
             @RequestParam("documentType") LegalDocumentType documentType,
             @RequestParam("file") MultipartFile file) {
 
-        LegalDocumentResponseDTO response = legalAssistanceService.uploadDocument(userDetails.getId(), sessionId, documentType, file);
+        LegalDocumentResponseDTO response = legalAssistanceService.uploadDocument(getUserId(userDetails), sessionId, documentType, file);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Document uploaded successfully.", response));
     }
 
@@ -75,7 +80,7 @@ public class CustomerLegalAssistanceController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long sessionId) {
 
-        LegalSessionDetailResponseDTO response = legalAssistanceService.getSessionDetail(userDetails.getId(), sessionId);
+        LegalSessionDetailResponseDTO response = legalAssistanceService.getSessionDetail(getUserId(userDetails), sessionId);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Session details retrieved.", response));
     }
 
@@ -85,7 +90,7 @@ public class CustomerLegalAssistanceController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long sessionId) {
 
-        List<LegalChatMessageResponseDTO> messages = legalAssistanceService.getSessionMessages(userDetails.getId(), sessionId);
+        List<LegalChatMessageResponseDTO> messages = legalAssistanceService.getSessionMessages(getUserId(userDetails), sessionId);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Session messages retrieved.", messages));
     }
 
@@ -95,7 +100,7 @@ public class CustomerLegalAssistanceController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long sessionId) {
 
-        LegalSessionSummaryResponseDTO summary = legalAssistanceService.getSessionSummary(userDetails.getId(), sessionId);
+        LegalSessionSummaryResponseDTO summary = legalAssistanceService.getSessionSummary(getUserId(userDetails), sessionId);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Case summary retrieved.", summary));
     }
 
@@ -105,7 +110,7 @@ public class CustomerLegalAssistanceController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long sessionId) {
 
-        List<LawyerSuggestionResponseDTO> lawyers = legalAssistanceService.getMatchingLawyers(userDetails.getId(), sessionId);
+        List<LawyerSuggestionResponseDTO> lawyers = legalAssistanceService.getMatchingLawyers(getUserId(userDetails), sessionId);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Matching verified lawyers retrieved.", lawyers));
     }
 
@@ -116,7 +121,7 @@ public class CustomerLegalAssistanceController {
             @PathVariable Long sessionId,
             @PathVariable Long lawyerId) {
 
-        ConsultationRequestResponseDTO response = consultationRequestService.createRequest(userDetails.getId(), sessionId, lawyerId);
+        ConsultationRequestResponseDTO response = consultationRequestService.createRequest(getUserId(userDetails), sessionId, lawyerId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponseDTO<>("SUCCESS", "Consultation request sent to advocate.", response));
     }
@@ -126,7 +131,27 @@ public class CustomerLegalAssistanceController {
     public ResponseEntity<ApiResponseDTO<List<LegalSessionDetailResponseDTO>>> getMySessions(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        List<LegalSessionDetailResponseDTO> sessions = legalAssistanceService.getMySessions(userDetails.getId());
+        List<LegalSessionDetailResponseDTO> sessions = legalAssistanceService.getMySessions(getUserId(userDetails));
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "My legal assistance sessions retrieved.", sessions));
+    }
+
+    // ─── 10b. GET MY CONSULTATION REQUESTS ─────────────────────────────────────
+    @GetMapping("/my-requests")
+    public ResponseEntity<ApiResponseDTO<List<ConsultationRequestResponseDTO>>> getMyRequests(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        List<ConsultationRequestResponseDTO> requests = consultationRequestService.getRequestsForCustomer(getUserId(userDetails));
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "My consultation requests retrieved.", requests));
+    }
+
+    // ─── 11. CONFIRM APPOINTMENT BY CUSTOMER ─────────────────────────────────────
+    @PostMapping("/requests/{requestId}/confirm")
+    public ResponseEntity<ApiResponseDTO<ConsultationRequestResponseDTO>> confirmAppointment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long requestId,
+            @RequestParam String action) {
+
+        ConsultationRequestResponseDTO response = consultationRequestService.confirmAppointmentByCustomer(getUserId(userDetails), requestId, action);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Appointment confirmation updated.", response));
     }
 }

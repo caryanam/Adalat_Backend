@@ -40,4 +40,6 @@ public class CustomerRegistrationRequestDTO {
 
     @NotNull(message = "You must accept the Privacy Policy")
     private Boolean privacyPolicyAccepted;
+
+    private String paymentTransactionId;
 }

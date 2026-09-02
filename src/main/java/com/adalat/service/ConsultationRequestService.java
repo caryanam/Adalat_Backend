@@ -34,4 +34,8 @@ public interface ConsultationRequestService {
     ConsultationRequestResponseDTO completeConsultationByCustomer(Long customerId, Long requestId);
 
     ConsultationRequestResponseDTO completeConsultationByLawyer(Long lawyerId, Long requestId);
+
+    ConsultationRequestResponseDTO confirmAppointmentByCustomer(Long customerId, Long requestId, String action);
+
+    ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId);
 }

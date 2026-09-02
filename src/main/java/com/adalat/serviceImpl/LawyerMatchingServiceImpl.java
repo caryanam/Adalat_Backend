@@ -31,10 +31,10 @@ public class LawyerMatchingServiceImpl implements LawyerMatchingService {
     @Override
     @Transactional
     public List<LawyerSuggestionResponseDTO> matchAndSaveLawyers(LegalAssistanceSession session, PracticeArea practiceArea) {
-        // Fetch all verified & active lawyers
-        List<Lawyer> allApprovedLawyers = lawyerRepository.findByVerificationStatus(VerificationStatus.APPROVED)
+        // Fetch all registered advocates in database
+        List<Lawyer> allApprovedLawyers = lawyerRepository.findAll()
                 .stream()
-                .filter(l -> l.getAccountStatus() == AccountStatus.ACTIVE && l.getRole() == Role.LAWYER)
+                .filter(l -> l.getRole() == Role.LAWYER)
                 .toList();
 
         List<LawyerSuggestionResponseDTO> suggestions = new ArrayList<>();

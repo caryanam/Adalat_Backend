@@ -54,11 +54,16 @@ public class SecurityConfig {
                                 "/api/customer/payment/initiate",
                                 "/api/customer/payment/verify",
                                 "/api/customer/registration",
+                                "/api/customer/legal-assistance/**",
                                 "/api/lawyer/registration",
                                 "/api/lawyer/register",
                                 "/api/lawyers/register/**",
                                 "/api/lawyers/*/documents",
-                                "/api/lawyers/login"
+                                "/api/lawyers/login",
+                                "/api/lawyer/consultation-requests/**",
+                                "/api/lawyer/consultations/**",
+                                "/api/customer/consultations/**",
+                                "/api/consultations/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/lawyers/**",

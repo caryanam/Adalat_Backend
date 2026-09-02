@@ -20,6 +20,8 @@ public interface ConsultationRequestRepository extends JpaRepository<Consultatio
 
     List<ConsultationRequest> findByLawyerOrderByCreatedAtDesc(Lawyer lawyer);
 
+    List<ConsultationRequest> findAllByOrderByCreatedAtDesc();
+
     List<ConsultationRequest> findByLawyerAndStatusOrderByCreatedAtDesc(Lawyer lawyer, ConsultationRequestStatus status);
 
     List<ConsultationRequest> findByLawyerAndStatusInOrderByCreatedAtDesc(Lawyer lawyer, List<ConsultationRequestStatus> statuses);

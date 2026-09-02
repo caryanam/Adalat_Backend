@@ -254,8 +254,12 @@ public class SocketIOConfig {
     @PreDestroy
     public void stopServer() {
         if (server != null) {
-            server.stop();
-            log.info("=== Socket.IO Server stopped ===");
+            try {
+                server.stop();
+                log.info("=== Socket.IO Server stopped ===");
+            } catch (Exception e) {
+                log.warn("Socket.IO Server shutdown exception: {}", e.getMessage());
+            }
         }
     }
 }

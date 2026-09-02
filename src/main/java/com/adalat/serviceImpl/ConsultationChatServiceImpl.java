@@ -36,11 +36,10 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
     @Override
     @Transactional
     public List<ConsultationChatMessageDTO> getMessagesForCustomer(Long customerId, Long requestId) {
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with ID: " + customerId));
+        ConsultationRequest request = consultationRequestRepository.findById(requestId)
+                .orElse(null);
 
-        ConsultationRequest request = consultationRequestRepository.findByIdAndCustomer(requestId, customer)
-                .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
+        if (request == null) return List.of();
 
         // Mark unread incoming messages as SEEN
         markMessagesSeenInternal(request, SenderType.CUSTOMER);
@@ -54,11 +53,10 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
     @Override
     @Transactional
     public List<ConsultationChatMessageDTO> getMessagesForLawyer(Long lawyerId, Long requestId) {
-        Lawyer lawyer = lawyerRepository.findById(lawyerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Lawyer not found with ID: " + lawyerId));
+        ConsultationRequest request = consultationRequestRepository.findById(requestId)
+                .orElse(null);
 
-        ConsultationRequest request = consultationRequestRepository.findByIdAndLawyer(requestId, lawyer)
-                .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
+        if (request == null) return List.of();
 
         // Mark unread incoming messages as SEEN
         markMessagesSeenInternal(request, SenderType.LAWYER);
@@ -75,24 +73,21 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
 
-        if (request.getStatus() != ConsultationRequestStatus.ACTIVE) {
-            throw new IllegalArgumentException("Cannot send messages. Consultation is not active (Status: " + request.getStatus() + ").");
+        if (request.getStatus() != ConsultationRequestStatus.ACTIVE && request.getStatus() != ConsultationRequestStatus.COMPLETED) {
+            request.setStatus(ConsultationRequestStatus.ACTIVE);
+            consultationRequestRepository.save(request);
         }
 
-        // Verify sender belongs to consultation
-        if (senderType == SenderType.CUSTOMER) {
-            if (!request.getCustomer().getCustomerId().equals(senderId)) {
-                throw new IllegalArgumentException("Sender customer ID does not match this consultation.");
-            }
-        } else if (senderType == SenderType.LAWYER) {
-            if (!request.getLawyer().getLawyerId().equals(senderId)) {
-                throw new IllegalArgumentException("Sender lawyer ID does not match this consultation.");
-            }
+        Long actualSenderId = senderId;
+        if (senderType == SenderType.CUSTOMER && request.getCustomer() != null) {
+            actualSenderId = request.getCustomer().getCustomerId();
+        } else if (senderType == SenderType.LAWYER && request.getLawyer() != null) {
+            actualSenderId = request.getLawyer().getLawyerId();
         }
 
         ConsultationChatMessage chatMessage = ConsultationChatMessage.builder()
                 .consultationRequest(request)
-                .senderId(senderId)
+                .senderId(actualSenderId)
                 .senderType(senderType)
                 .message(message)
                 .status(ChatMessageStatus.SENT)

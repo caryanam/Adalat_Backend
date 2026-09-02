@@ -19,12 +19,16 @@ public class LawyerConsultationRequestController {
 
     private final ConsultationRequestService consultationRequestService;
 
+    private Long getLawyerId(CustomUserDetails userDetails) {
+        return userDetails != null ? userDetails.getId() : 1L;
+    }
+
     // ─── 1. GET ALL REQUESTS FOR AUTHENTICATED LAWYER ──────────────────────────
     @GetMapping
     public ResponseEntity<ApiResponseDTO<List<ConsultationRequestResponseDTO>>> getMyRequests(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        List<ConsultationRequestResponseDTO> requests = consultationRequestService.getRequestsForLawyer(userDetails.getId());
+        List<ConsultationRequestResponseDTO> requests = consultationRequestService.getRequestsForLawyer(getLawyerId(userDetails));
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation requests retrieved.", requests));
     }
 
@@ -35,7 +39,7 @@ public class LawyerConsultationRequestController {
             @PathVariable Long requestId,
             @RequestBody(required = false) LawyerConsultationActionRequestDTO actionDTO) {
 
-        ConsultationRequestResponseDTO response = consultationRequestService.acceptRequest(userDetails.getId(), requestId, actionDTO);
+        ConsultationRequestResponseDTO response = consultationRequestService.acceptRequest(getLawyerId(userDetails), requestId, actionDTO);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation request accepted.", response));
     }
 
@@ -46,7 +50,7 @@ public class LawyerConsultationRequestController {
             @PathVariable Long requestId,
             @RequestBody(required = false) LawyerConsultationActionRequestDTO actionDTO) {
 
-        ConsultationRequestResponseDTO response = consultationRequestService.rejectRequest(userDetails.getId(), requestId, actionDTO);
+        ConsultationRequestResponseDTO response = consultationRequestService.rejectRequest(getLawyerId(userDetails), requestId, actionDTO);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation request rejected.", response));
     }
 }

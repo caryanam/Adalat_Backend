@@ -247,6 +247,14 @@ public class LawyerServiceImpl implements LawyerService {
         return toProfileDTO(findLawyerById(lawyerId));
     }
 
+    @Override
+    public List<LawyerProfileResponseDTO> getPublicDirectoryLawyers() {
+        return lawyerRepository.findAll().stream()
+                .filter(l -> l.getRole() == Role.LAWYER)
+                .map(this::toProfileDTO)
+                .collect(Collectors.toList());
+    }
+
     // ─── HELPERS ───────────────────────────────────────────────────────────────
 
     private Lawyer findLawyerById(Long lawyerId) {

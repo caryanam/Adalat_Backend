@@ -27,6 +27,13 @@ public class LawyerRegistrationController {
                         response));
     }
 
+    // ─── GET Public Advocates Directory ──────────────────────────────────────
+    @GetMapping("/directory")
+    public ResponseEntity<ApiResponseDTO<java.util.List<LawyerProfileResponseDTO>>> getPublicDirectory() {
+        java.util.List<LawyerProfileResponseDTO> response = lawyerService.getPublicDirectoryLawyers();
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Public advocate directory retrieved.", response));
+    }
+
     // ─── GET Lawyer Registration Progress ────────────────────────────────────
     @GetMapping("/{lawyerId}")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> getRegistrationProgress(

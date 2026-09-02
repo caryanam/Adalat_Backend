@@ -29,6 +29,9 @@ public class ConsultationRequestResponseDTO {
     private String caseSummary;
     private ConsultationRequestStatus status;
     private String lawyerNotes;
+    private String assignedDate;
+    private String assignedTime;
+    private String customerConfirmationStatus;
     private String nextStepInstruction;
     private LocalDateTime scheduledAt;
     private java.math.BigDecimal paymentAmount;

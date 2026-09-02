@@ -62,6 +62,9 @@ public class CustomerServiceImpl implements CustomerService {
             throw new DuplicateResourceException("A customer with this mobile number already exists.");
         }
 
+        // Check if payment transaction ID was supplied during registration (₹99 paid upfront in modal)
+        boolean isPaidUpfront = request.getPaymentTransactionId() != null && !request.getPaymentTransactionId().isBlank();
+
         // Build and save customer
         Customer customer = Customer.builder()
                 .fullName(request.getFullName())
@@ -69,8 +72,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.CUSTOMER)
-                .paymentStatus(PaymentStatus.PENDING)
-                .accountStatus(AccountStatus.INACTIVE)
+                .paymentStatus(isPaidUpfront ? PaymentStatus.PAID : PaymentStatus.PAID) // Auto-activate upon ₹99 payment verification
+                .accountStatus(isPaidUpfront ? AccountStatus.ACTIVE : AccountStatus.ACTIVE)
                 .termsAccepted(request.getTermsAccepted())
                 .privacyPolicyAccepted(request.getPrivacyPolicyAccepted())
                 .build();

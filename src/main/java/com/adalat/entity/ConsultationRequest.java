@@ -8,6 +8,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -24,7 +25,7 @@ public class ConsultationRequest {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "legal_session_id", nullable = false)
+    @JoinColumn(name = "legal_session_id", nullable = true)
     private LegalAssistanceSession legalSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -54,7 +55,13 @@ public class ConsultationRequest {
 
     private LocalDateTime scheduledAt;
 
-    private java.math.BigDecimal paymentAmount;
+    private BigDecimal paymentAmount;
+
+    private String assignedDate;
+
+    private String assignedTime;
+
+    private String customerConfirmationStatus;
 
     @CreationTimestamp
     @Column(updatable = false)

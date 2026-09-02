@@ -30,4 +30,6 @@ public interface LawyerService {
     java.util.List<LawyerProfileResponseDTO> getPendingLawyers();
 
     LawyerProfileResponseDTO getLawyerById(Long lawyerId);
+
+    java.util.List<LawyerProfileResponseDTO> getPublicDirectoryLawyers();
 }
