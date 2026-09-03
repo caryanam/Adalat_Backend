@@ -28,6 +28,7 @@ public class PublicLawyerProfileDTO {
     private String barEnrollmentNumber;
     private ConsultationRate consultationRate;
     private Integer consultationRateAmount;
+    private Integer consultationFee;
     private VerificationStatus verificationStatus;
     private Double rating;
     private Integer totalConsultations;

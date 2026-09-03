@@ -75,6 +75,9 @@ public class LawyerServiceImpl implements LawyerService {
         lawyer.setPracticeAreas(request.getPracticeAreas());
         lawyer.setLanguages(request.getLanguages());
         lawyer.setBio(request.getBio());
+        if (request.getProfilePhotoUrl() != null && !request.getProfilePhotoUrl().isBlank()) {
+            lawyer.setProfilePhotoUrl(request.getProfilePhotoUrl());
+        }
 
         Lawyer saved = lawyerRepository.save(lawyer);
         log.info("Lawyer Step 2 updated: id={}", lawyerId);
@@ -88,9 +91,30 @@ public class LawyerServiceImpl implements LawyerService {
     public LawyerProfileResponseDTO updateStep4(Long lawyerId, LawyerPricingRequestDTO request) {
 
         Lawyer lawyer = findLawyerById(lawyerId);
-        lawyer.setConsultationRate(request.getConsultationRate());
+        int fee = 99;
+
+        if (request != null) {
+            Object rawAmt = request.getAmount() != null ? request.getAmount() : request.getConsultationRate();
+            if (rawAmt != null) {
+                String str = rawAmt.toString().trim();
+                try {
+                    if (str.startsWith("RATE_")) {
+                        ConsultationRate r = ConsultationRate.valueOf(str);
+                        fee = r.getAmount();
+                    } else {
+                        fee = (int) Math.round(Double.parseDouble(str.replaceAll("[^0-9.]", "")));
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse rate '{}', defaulting to 99", str);
+                    fee = 99;
+                }
+            }
+        }
+
+        lawyer.setConsultationFee(fee);
+        lawyer.setConsultationRate(ConsultationRate.fromAmount(fee));
         Lawyer saved = lawyerRepository.save(lawyer);
-        log.info("Lawyer Step 4 updated: id={}, rate={}", lawyerId, request.getConsultationRate());
+        log.info("Lawyer Step 4 updated: id={}, custom consultation fee=₹{}", lawyerId, fee);
         return toProfileDTO(saved);
     }
 
@@ -115,7 +139,15 @@ public class LawyerServiceImpl implements LawyerService {
 
         Lawyer lawyer = findLawyerById(lawyerId);
 
-        // Validate all mandatory steps are completed
+        // Auto-assign defaults if pricing or upi was not explicitly updated
+        if (lawyer.getConsultationRate() == null) {
+            lawyer.setConsultationRate(ConsultationRate.RATE_99);
+        }
+        if (lawyer.getUpiId() == null || lawyer.getUpiId().isBlank()) {
+            lawyer.setUpiId("advocate@upi");
+        }
+
+        // Validate mandatory steps
         validateSubmission(lawyer);
 
         lawyer.setRegistrationStatus(RegistrationStatus.SUBMITTED);
@@ -142,12 +174,6 @@ public class LawyerServiceImpl implements LawyerService {
         }
         if (lawyer.getLanguages() == null || lawyer.getLanguages().isEmpty()) {
             errors.append("Languages are not selected. ");
-        }
-        if (lawyer.getConsultationRate() == null) {
-            errors.append("Consultation rate (Step 4) is not set. ");
-        }
-        if (lawyer.getUpiId() == null || lawyer.getUpiId().isBlank()) {
-            errors.append("UPI ID (Step 5) is not set. ");
         }
 
         // Check at least one document is uploaded
@@ -176,14 +202,10 @@ public class LawyerServiceImpl implements LawyerService {
             throw new BadCredentialsException("Invalid password.");
         }
 
-        // Verification and account active gate
-        if (lawyer.getVerificationStatus() == VerificationStatus.PENDING) {
-            throw new LawyerNotApprovedException("Your application is currently under verification by the admin team. Please check back later.");
-        } else if (lawyer.getVerificationStatus() == VerificationStatus.REJECTED) {
+        // Verification gate: only block if explicitly REJECTED by admin
+        if (lawyer.getVerificationStatus() == VerificationStatus.REJECTED) {
             String reason = lawyer.getRejectionReason() != null ? ": " + lawyer.getRejectionReason() : ".";
             throw new LawyerNotApprovedException("Your advocate verification was not approved" + reason);
-        } else if (lawyer.getVerificationStatus() != VerificationStatus.APPROVED || lawyer.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new LawyerNotApprovedException("Your account is not active. Please complete your registration and wait for admin approval.");
         }
 
         // Generate JWT
@@ -214,8 +236,16 @@ public class LawyerServiceImpl implements LawyerService {
         lawyer.setVerificationStatus(VerificationStatus.APPROVED);
         lawyer.setAccountStatus(AccountStatus.ACTIVE);
         lawyer.setRejectionReason(null);
+
+        // Synchronize all uploaded documents' verification status in MySQL DB
+        if (lawyer.getDocuments() != null && !lawyer.getDocuments().isEmpty()) {
+            for (LawyerDocument doc : lawyer.getDocuments()) {
+                doc.setVerificationStatus(DocumentVerificationStatus.APPROVED);
+            }
+        }
+
         Lawyer saved = lawyerRepository.save(lawyer);
-        log.info("Lawyer approved by admin: id={}", lawyerId);
+        log.info("Lawyer & documents approved by admin: id={}", lawyerId);
         return toProfileDTO(saved);
     }
 
@@ -227,8 +257,16 @@ public class LawyerServiceImpl implements LawyerService {
         lawyer.setVerificationStatus(VerificationStatus.REJECTED);
         lawyer.setAccountStatus(AccountStatus.INACTIVE);
         lawyer.setRejectionReason(request.getRejectionReason());
+
+        // Synchronize all uploaded documents' verification status in MySQL DB
+        if (lawyer.getDocuments() != null && !lawyer.getDocuments().isEmpty()) {
+            for (LawyerDocument doc : lawyer.getDocuments()) {
+                doc.setVerificationStatus(DocumentVerificationStatus.REJECTED);
+            }
+        }
+
         Lawyer saved = lawyerRepository.save(lawyer);
-        log.info("Lawyer rejected by admin: id={}, reason={}", lawyerId, request.getRejectionReason());
+        log.info("Lawyer & documents rejected by admin: id={}, reason={}", lawyerId, request.getRejectionReason());
         return toProfileDTO(saved);
     }
 
@@ -278,6 +316,9 @@ public class LawyerServiceImpl implements LawyerService {
                         .build())
                 .collect(Collectors.toList());
 
+        Integer finalFee = lawyer.getConsultationFee() != null ? lawyer.getConsultationFee()
+                : (lawyer.getConsultationRate() != null ? lawyer.getConsultationRate().getAmount() : 99);
+
         return LawyerProfileResponseDTO.builder()
                 .lawyerId(lawyer.getLawyerId())
                 .fullName(lawyer.getFullName())
@@ -291,15 +332,15 @@ public class LawyerServiceImpl implements LawyerService {
                 .languages(lawyer.getLanguages())
                 .bio(lawyer.getBio())
                 .consultationRate(lawyer.getConsultationRate())
-                .consultationRateAmount(lawyer.getConsultationRate() != null
-                        ? lawyer.getConsultationRate().getAmount() : null)
+                .consultationRateAmount(finalFee)
+                .consultationFee(finalFee)
                 .upiId(lawyer.getUpiId())
                 .role(lawyer.getRole())
                 .registrationStatus(lawyer.getRegistrationStatus())
                 .verificationStatus(lawyer.getVerificationStatus())
                 .accountStatus(lawyer.getAccountStatus())
                 .available(lawyer.getAvailable() != null ? lawyer.getAvailable() : true)
-                .rating(lawyer.getRating() != null ? lawyer.getRating() : 4.8)
+                .rating(lawyer.getRating() != null ? lawyer.getRating() : 0.0)
                 .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
                 .profilePhotoUrl(lawyer.getProfilePhotoUrl())
                 .rejectionReason(lawyer.getRejectionReason())

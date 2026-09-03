@@ -27,6 +27,7 @@ public class LawyerProfileResponseDTO {
     // Pricing & UPI
     private ConsultationRate consultationRate;
     private Integer consultationRateAmount;
+    private Integer consultationFee;
     private String upiId;
 
     // Status

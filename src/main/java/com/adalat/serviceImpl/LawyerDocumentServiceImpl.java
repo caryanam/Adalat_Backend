@@ -77,6 +77,12 @@ public class LawyerDocumentServiceImpl implements LawyerDocumentService {
                 .build();
 
         LawyerDocument saved = lawyerDocumentRepository.save(document);
+
+        if (documentType == DocumentType.PHOTO) {
+            lawyer.setProfilePhotoUrl(fileUrl);
+            lawyerRepository.save(lawyer);
+        }
+
         log.info("Document uploaded: lawyerId={}, type={}, url={}", lawyerId, documentType, fileUrl);
         return toDTO(saved);
     }

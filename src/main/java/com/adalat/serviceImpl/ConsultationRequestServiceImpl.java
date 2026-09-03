@@ -63,9 +63,11 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .orElseGet(() -> lawyerRepository.findAll().stream().findFirst()
                         .orElseThrow(() -> new ResourceNotFoundException("No advocate available in system with ID: " + lawyerId)));
 
-        BigDecimal fee = lawyer.getConsultationRate() != null
-                ? new BigDecimal(lawyer.getConsultationRate().getAmount())
-                : new BigDecimal("99.00");
+        BigDecimal fee = lawyer.getConsultationFee() != null
+                ? new BigDecimal(lawyer.getConsultationFee())
+                : (lawyer.getConsultationRate() != null
+                    ? new BigDecimal(lawyer.getConsultationRate().getAmount())
+                    : new BigDecimal("99.00"));
 
         String summaryText = (session.getSummary() != null && !session.getSummary().isBlank())
                 ? session.getSummary()
@@ -127,9 +129,11 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         }
 
         if (request.getPaymentAmount() == null) {
-            BigDecimal fee = request.getLawyer().getConsultationRate() != null
-                    ? new BigDecimal(request.getLawyer().getConsultationRate().getAmount())
-                    : new BigDecimal("99.00");
+            BigDecimal fee = request.getLawyer().getConsultationFee() != null
+                    ? new BigDecimal(request.getLawyer().getConsultationFee())
+                    : (request.getLawyer().getConsultationRate() != null
+                        ? new BigDecimal(request.getLawyer().getConsultationRate().getAmount())
+                        : new BigDecimal("99.00"));
             request.setPaymentAmount(fee);
         }
 
@@ -278,11 +282,15 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             throw new IllegalArgumentException("Payment cannot be initiated for consultation status: " + request.getStatus());
         }
 
-        BigDecimal amount = request.getPaymentAmount() != null
+        BigDecimal baseAmount = request.getPaymentAmount() != null
                 ? request.getPaymentAmount()
-                : (request.getLawyer().getConsultationRate() != null
-                    ? new BigDecimal(request.getLawyer().getConsultationRate().getAmount())
-                    : new BigDecimal("99.00"));
+                : (request.getLawyer().getConsultationFee() != null
+                    ? new BigDecimal(request.getLawyer().getConsultationFee())
+                    : (request.getLawyer().getConsultationRate() != null
+                        ? new BigDecimal(request.getLawyer().getConsultationRate().getAmount())
+                        : new BigDecimal("99.00")));
+
+        BigDecimal amountWithGst = baseAmount.multiply(new BigDecimal("1.18")).setScale(2, java.math.RoundingMode.HALF_UP);
 
         String orderId = "ORD_CONS_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 6);
 
@@ -291,7 +299,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .consultationRequest(request)
                 .paymentType("CONSULTATION_FEE")
                 .orderId(orderId)
-                .amount(amount)
+                .amount(amountWithGst)
                 .status(PaymentStatus.PENDING)
                 .build();
 
@@ -418,7 +426,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .lawyerId(req.getLawyer().getLawyerId())
                 .lawyerName(req.getLawyer().getFullName())
                 .lawyerLocation(req.getLawyer().getLocation())
-                .lawyerRate(req.getLawyer().getConsultationRate() != null ? req.getLawyer().getConsultationRate().getAmount() : 99)
+                .lawyerRate(req.getLawyer().getConsultationFee() != null ? req.getLawyer().getConsultationFee() : (req.getLawyer().getConsultationRate() != null ? req.getLawyer().getConsultationRate().getAmount() : 99))
                 .category(req.getCategory())
                 .categoryDisplayName(req.getCategory() != null ? req.getCategory().getDisplayName() : null)
                 .practiceArea(req.getPracticeArea())

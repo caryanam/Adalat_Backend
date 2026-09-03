@@ -63,7 +63,8 @@ public class SecurityConfig {
                                 "/api/lawyer/consultation-requests/**",
                                 "/api/lawyer/consultations/**",
                                 "/api/customer/consultations/**",
-                                "/api/consultations/**"
+                                "/api/consultations/**",
+                                "/api/admin/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/lawyers/**",

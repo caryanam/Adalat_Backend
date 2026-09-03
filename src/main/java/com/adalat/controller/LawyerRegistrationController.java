@@ -1,12 +1,15 @@
 package com.adalat.controller;
 
 import com.adalat.dto.*;
+import com.adalat.enums.DocumentType;
+import com.adalat.service.LawyerDocumentService;
 import com.adalat.service.LawyerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/lawyers/register")
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class LawyerRegistrationController {
 
     private final LawyerService lawyerService;
+    private final LawyerDocumentService lawyerDocumentService;
 
     // ─── STEP 1 — Account ─────────────────────────────────────────────────────
     @PostMapping("/step1")
@@ -51,6 +55,17 @@ public class LawyerRegistrationController {
 
         LawyerProfileResponseDTO response = lawyerService.updateStep2(lawyerId, request);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 2 completed.", response));
+    }
+
+    // ─── STEP 3 — Document Upload ──────────────────────────────────────────────
+    @PostMapping("/{lawyerId}/step3")
+    public ResponseEntity<ApiResponseDTO<LawyerDocumentResponseDTO>> step3(
+            @PathVariable Long lawyerId,
+            @RequestParam("documentType") DocumentType documentType,
+            @RequestParam("file") MultipartFile file) {
+
+        LawyerDocumentResponseDTO response = lawyerDocumentService.uploadDocument(lawyerId, documentType, file);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 3 completed. Document uploaded successfully.", response));
     }
 
     // ─── STEP 4 — Pricing ─────────────────────────────────────────────────────

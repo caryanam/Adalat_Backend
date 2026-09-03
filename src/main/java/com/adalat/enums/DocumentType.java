@@ -1,6 +1,12 @@
 package com.adalat.enums;
 
 public enum DocumentType {
+    BAR_COUNCIL_CERTIFICATE,
+    ENROLLMENT_CERTIFICATE,
+    ID_PROOF,
+    ADDRESS_PROOF,
+    PHOTO,
+    DEGREE_CERTIFICATE,
     IDENTITY_PROOF,
     LAW_DEGREE,
     BAR_ENROLLMENT_PROOF,

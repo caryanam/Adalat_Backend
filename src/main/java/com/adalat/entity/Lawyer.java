@@ -73,6 +73,8 @@ public class Lawyer {
     @Enumerated(EnumType.STRING)
     private ConsultationRate consultationRate;
 
+    private Integer consultationFee = 99;
+
     // ─── Step 5 — UPI ─────────────────────────────────────────────────────────
     private String upiId;
 
@@ -102,7 +104,7 @@ public class Lawyer {
     private Boolean available = true;
 
     @Builder.Default
-    private Double rating = 4.8;
+    private Double rating = 0.0;
 
     @Builder.Default
     private Integer totalConsultations = 0;

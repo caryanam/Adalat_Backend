@@ -30,7 +30,8 @@ public class LawyerProfessionalRequestDTO {
     @NotEmpty(message = "Please select at least one language")
     private Set<Language> languages;
 
-    @NotBlank(message = "Professional bio is required")
-    @Size(min = 50, max = 2000, message = "Bio must be between 50 and 2000 characters")
+    @Size(max = 2000, message = "Bio must not exceed 2000 characters")
     private String bio;
+
+    private String profilePhotoUrl;
 }
