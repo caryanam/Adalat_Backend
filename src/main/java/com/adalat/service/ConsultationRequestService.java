@@ -3,13 +3,14 @@ package com.adalat.service;
 import com.adalat.dto.ConsultationPaymentInitiateDTO;
 import com.adalat.dto.ConsultationPaymentVerifyDTO;
 import com.adalat.dto.ConsultationRequestResponseDTO;
+import com.adalat.dto.CreateConsultationRequestDTO;
 import com.adalat.dto.LawyerConsultationActionRequestDTO;
 
 import java.util.List;
 
 public interface ConsultationRequestService {
 
-    ConsultationRequestResponseDTO createRequest(Long customerId, Long sessionId, Long lawyerId);
+    ConsultationRequestResponseDTO createRequest(Long customerId, CreateConsultationRequestDTO requestDTO);
 
     List<ConsultationRequestResponseDTO> getRequestsForLawyer(Long lawyerId);
 

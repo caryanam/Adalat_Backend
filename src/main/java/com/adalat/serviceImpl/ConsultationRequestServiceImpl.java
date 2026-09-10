@@ -3,11 +3,11 @@ package com.adalat.serviceImpl;
 import com.adalat.dto.ConsultationPaymentInitiateDTO;
 import com.adalat.dto.ConsultationPaymentVerifyDTO;
 import com.adalat.dto.ConsultationRequestResponseDTO;
+import com.adalat.dto.CreateConsultationRequestDTO;
 import com.adalat.dto.LawyerConsultationActionRequestDTO;
 import com.adalat.entity.ConsultationRequest;
 import com.adalat.entity.Customer;
 import com.adalat.entity.Lawyer;
-import com.adalat.entity.LegalAssistanceSession;
 import com.adalat.entity.PaymentTransaction;
 import com.adalat.enums.ConsultationRequestStatus;
 import com.adalat.enums.PaymentStatus;
@@ -15,7 +15,6 @@ import com.adalat.exception.ResourceNotFoundException;
 import com.adalat.repository.ConsultationRequestRepository;
 import com.adalat.repository.CustomerRepository;
 import com.adalat.repository.LawyerRepository;
-import com.adalat.repository.LegalAssistanceSessionRepository;
 import com.adalat.repository.PaymentTransactionRepository;
 import com.adalat.service.ConsultationRequestService;
 import lombok.RequiredArgsConstructor;
@@ -34,34 +33,20 @@ import java.util.stream.Collectors;
 public class ConsultationRequestServiceImpl implements ConsultationRequestService {
 
     private final ConsultationRequestRepository consultationRequestRepository;
-    private final LegalAssistanceSessionRepository legalSessionRepository;
     private final CustomerRepository customerRepository;
     private final LawyerRepository lawyerRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
     @Transactional
-    public ConsultationRequestResponseDTO createRequest(Long customerId, Long sessionId, Long lawyerId) {
+    public ConsultationRequestResponseDTO createRequest(Long customerId, CreateConsultationRequestDTO requestDTO) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseGet(() -> customerRepository.findAll().stream().findFirst()
                         .orElseThrow(() -> new ResourceNotFoundException("No customer found in system with ID: " + customerId)));
 
-        LegalAssistanceSession session = (sessionId != null) 
-                ? legalSessionRepository.findById(sessionId).orElse(null) 
-                : null;
-
-        if (session == null) {
-            session = LegalAssistanceSession.builder()
-                    .customer(customer)
-                    .selectedCategory(com.adalat.enums.LegalCategory.PROPERTY_RENTAL_DISPUTE)
-                    .summary("AI Legal Assessment Report completed. Direct advocate consultation requested.")
-                    .build();
-            session = legalSessionRepository.save(session);
-        }
-
-        Lawyer lawyer = lawyerRepository.findById(lawyerId)
+        Lawyer lawyer = lawyerRepository.findById(requestDTO.getLawyerId())
                 .orElseGet(() -> lawyerRepository.findAll().stream().findFirst()
-                        .orElseThrow(() -> new ResourceNotFoundException("No advocate available in system with ID: " + lawyerId)));
+                        .orElseThrow(() -> new ResourceNotFoundException("No advocate available in system with ID: " + requestDTO.getLawyerId())));
 
         BigDecimal fee = lawyer.getConsultationFee() != null
                 ? new BigDecimal(lawyer.getConsultationFee())
@@ -69,17 +54,17 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     ? new BigDecimal(lawyer.getConsultationRate().getAmount())
                     : new BigDecimal("99.00"));
 
-        String summaryText = (session.getSummary() != null && !session.getSummary().isBlank())
-                ? session.getSummary()
+        String summaryText = (requestDTO.getCaseSummary() != null && !requestDTO.getCaseSummary().isBlank())
+                ? requestDTO.getCaseSummary()
                 : "Client requested direct legal consultation for case assessment.";
 
         ConsultationRequest request = ConsultationRequest.builder()
-                .legalSession(session)
                 .customer(customer)
                 .lawyer(lawyer)
-                .category(session.getSelectedCategory() != null ? session.getSelectedCategory() : com.adalat.enums.LegalCategory.PROPERTY_RENTAL_DISPUTE)
-                .practiceArea(session.getPracticeArea() != null ? session.getPracticeArea() : com.adalat.enums.PracticeArea.PROPERTY_LAW)
+                .category(requestDTO.getCategory() != null ? requestDTO.getCategory() : com.adalat.enums.LegalCategory.CIVIL_DISPUTE)
+                .practiceArea(requestDTO.getPracticeArea() != null ? requestDTO.getPracticeArea() : com.adalat.enums.PracticeArea.CIVIL_DISPUTES)
                 .caseSummary(summaryText)
+                .scheduledAt(requestDTO.getScheduledAt())
                 .status(ConsultationRequestStatus.REQUESTED)
                 .paymentAmount(fee)
                 .build();
@@ -308,12 +293,13 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         request.setStatus(ConsultationRequestStatus.PAYMENT_PENDING);
         consultationRequestRepository.save(request);
 
-        log.info("Consultation payment initiated: requestId={}, orderId={}, amount={}", requestId, orderId, amount);
+        log.info("Consultation payment initiated: requestId={}, orderId={}, amount={}", requestId, orderId, amountWithGst);
 
         return ConsultationPaymentInitiateDTO.builder()
                 .consultationRequestId(requestId)
+                .customerId(customerId)
                 .orderId(orderId)
-                .amount(amount)
+                .amount(amountWithGst)
                 .currency("INR")
                 .lawyerId(request.getLawyer().getLawyerId())
                 .lawyerName(request.getLawyer().getFullName())
@@ -418,7 +404,6 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
 
         return ConsultationRequestResponseDTO.builder()
                 .id(req.getId())
-                .sessionId(req.getLegalSession() != null ? req.getLegalSession().getId() : null)
                 .customerId(req.getCustomer().getCustomerId())
                 .customerName(req.getCustomer().getFullName())
                 .customerEmail(req.getCustomer().getEmail())

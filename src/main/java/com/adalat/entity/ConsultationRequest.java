@@ -25,10 +25,6 @@ public class ConsultationRequest {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "legal_session_id", nullable = true)
-    private LegalAssistanceSession legalSession;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 

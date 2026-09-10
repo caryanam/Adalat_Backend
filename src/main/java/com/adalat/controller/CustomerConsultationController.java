@@ -24,6 +24,18 @@ public class CustomerConsultationController {
     private final ConsultationRequestService consultationRequestService;
     private final ConsultationChatService consultationChatService;
 
+    @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Book advocate consultation", description = "Directly book a consultation request with an advocate")
+    public ResponseEntity<ApiResponseDTO<ConsultationRequestResponseDTO>> createConsultation(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody CreateConsultationRequestDTO requestDTO) {
+
+        Long customerId = userDetails != null ? userDetails.getId() : 1L;
+        ConsultationRequestResponseDTO created = consultationRequestService.createRequest(customerId, requestDTO);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation booked successfully.", created));
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Get all customer consultations", description = "Fetch consultations with optional status filter (active, upcoming, completed, cancelled)")

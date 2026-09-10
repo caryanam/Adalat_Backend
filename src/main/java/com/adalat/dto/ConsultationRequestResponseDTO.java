@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 public class ConsultationRequestResponseDTO {
 
     private Long id;
-    private Long sessionId;
     private Long customerId;
     private String customerName;
     private String customerEmail;

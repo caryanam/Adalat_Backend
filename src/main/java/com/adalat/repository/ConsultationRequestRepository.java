@@ -3,7 +3,6 @@ package com.adalat.repository;
 import com.adalat.entity.Customer;
 import com.adalat.entity.ConsultationRequest;
 import com.adalat.entity.Lawyer;
-import com.adalat.entity.LegalAssistanceSession;
 import com.adalat.enums.ConsultationRequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -25,10 +24,6 @@ public interface ConsultationRequestRepository extends JpaRepository<Consultatio
     List<ConsultationRequest> findByLawyerAndStatusOrderByCreatedAtDesc(Lawyer lawyer, ConsultationRequestStatus status);
 
     List<ConsultationRequest> findByLawyerAndStatusInOrderByCreatedAtDesc(Lawyer lawyer, List<ConsultationRequestStatus> statuses);
-
-    List<ConsultationRequest> findByLegalSession(LegalAssistanceSession legalSession);
-
-    Optional<ConsultationRequest> findByLegalSessionAndLawyer(LegalAssistanceSession legalSession, Lawyer lawyer);
 
     Optional<ConsultationRequest> findByIdAndCustomer(Long id, Customer customer);
 
