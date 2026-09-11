@@ -25,4 +25,9 @@ public interface LawyerRepository extends JpaRepository<Lawyer, Long> {
     List<Lawyer> findByRegistrationStatusAndVerificationStatus(
             RegistrationStatus registrationStatus,
             VerificationStatus verificationStatus);
+
+    List<Lawyer> findByVerificationStatusAndAccountStatusAndAvailable(
+            VerificationStatus verificationStatus,
+            com.adalat.enums.AccountStatus accountStatus,
+            Boolean available);
 }

@@ -26,6 +26,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    // Security Exception
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleSecurityException(SecurityException ex) {
+        return build(HttpStatus.FORBIDDEN, "Access denied: " + ex.getMessage());
+    }
+
     //Generic Exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponseDTO<Object>> handleGeneric(

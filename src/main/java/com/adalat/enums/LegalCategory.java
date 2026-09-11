@@ -4,19 +4,22 @@ import lombok.Getter;
 
 @Getter
 public enum LegalCategory {
-    PROPERTY_RENTAL_DISPUTE("Property & Rental Dispute", PracticeArea.PROPERTY_LAW),
-    DIVORCE("Divorce & Matrimonial Dispute", PracticeArea.MATRIMONIAL_MATTERS),
-    CRIMINAL_MATTER("Criminal Offence & FIR", PracticeArea.CRIMINAL_LAW),
-    WORKPLACE_ISSUE("Workplace & Labour Issue", PracticeArea.EMPLOYMENT_LAW),
-    CONSUMER_COMPLAINT("Consumer Grievance & Complaint", PracticeArea.CONSUMER_LAW),
+    EMPLOYMENT("Employment / Labour", PracticeArea.EMPLOYMENT_LAW),
+    EMPLOYMENT_SALARY("Salary / Employment Dispute", PracticeArea.EMPLOYMENT_LAW),
+    CRIMINAL("Criminal Offence & FIR", PracticeArea.CRIMINAL_LAW),
+    PROPERTY("Property Dispute", PracticeArea.PROPERTY_LAW),
+    TENANCY("Tenancy / Rental Dispute", PracticeArea.PROPERTY_LAW),
+    FAMILY("Family & Matrimonial", PracticeArea.FAMILY_LAW),
+    CONSUMER("Consumer Grievance", PracticeArea.CONSUMER_LAW),
     CYBERCRIME("Cybercrime & Online Fraud", PracticeArea.CYBERCRIME),
-    FAMILY_DISPUTE("Family & Partition Dispute", PracticeArea.FAMILY_LAW),
-    CIVIL_DISPUTE("Civil Dispute & Recovery", PracticeArea.CIVIL_DISPUTES),
-    MATRIMONIAL_MATTER("Matrimonial & Maintenance", PracticeArea.MATRIMONIAL_MATTERS),
-    BANKING_FINANCE("Banking, Loan & Financial Dispute", PracticeArea.BANKING_AND_FINANCE),
-    EMPLOYMENT_DISPUTE("Employment & Termination Dispute", PracticeArea.EMPLOYMENT_LAW),
-    CORPORATE_MATTER("Corporate & Commercial Matter", PracticeArea.CORPORATE_LAW),
-    OTHER("General Legal Inquiry", PracticeArea.CIVIL_DISPUTES);
+    BANKING_FINANCE("Banking, Loan & Financial", PracticeArea.BANKING_AND_FINANCE),
+    CONTRACT("Contracts & Agreements", PracticeArea.CIVIL_DISPUTES),
+    BUSINESS_COMMERCIAL("Business & Commercial", PracticeArea.CORPORATE_LAW),
+    INSURANCE("Insurance Dispute", PracticeArea.CIVIL_DISPUTES),
+    MOTOR_VEHICLE("Motor Vehicle Accidents", PracticeArea.CIVIL_DISPUTES),
+    CIVIL("Civil Dispute & Recovery", PracticeArea.CIVIL_DISPUTES),
+    INTELLECTUAL_PROPERTY("Intellectual Property", PracticeArea.CORPORATE_LAW),
+    OTHER_LEGAL("General Legal Inquiry", PracticeArea.CIVIL_DISPUTES);
 
     private final String displayName;
     private final PracticeArea defaultPracticeArea;

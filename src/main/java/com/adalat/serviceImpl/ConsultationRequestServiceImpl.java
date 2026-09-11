@@ -61,7 +61,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         ConsultationRequest request = ConsultationRequest.builder()
                 .customer(customer)
                 .lawyer(lawyer)
-                .category(requestDTO.getCategory() != null ? requestDTO.getCategory() : com.adalat.enums.LegalCategory.CIVIL_DISPUTE)
+                .category(requestDTO.getCategory() != null ? requestDTO.getCategory() : com.adalat.enums.LegalCategory.CIVIL)
                 .practiceArea(requestDTO.getPracticeArea() != null ? requestDTO.getPracticeArea() : com.adalat.enums.PracticeArea.CIVIL_DISPUTES)
                 .caseSummary(summaryText)
                 .scheduledAt(requestDTO.getScheduledAt())
