@@ -297,7 +297,7 @@ class LegalConversationOrchestratorTest {
         assertEquals(IntakeStatus.ACTIVE, response.getStatus());
         assertTrue(response.getAssistantMessage().contains("temporarily unavailable"));
         assertEquals(0, activeSession.getQuestionCount()); // Question count not incremented
-        verify(messageRepository, times(1)).save(any(LegalIntakeMessage.class)); // Customer message saved
+        verify(messageRepository, times(2)).save(any(LegalIntakeMessage.class)); // Customer message and AI fallback message saved
     }
 
     @Test

@@ -277,8 +277,11 @@ public class LegalConversationOrchestratorImpl implements LegalConversationOrche
         try {
             aiResponse = aiProvider.processMessage(aiRequest);
         } catch (Exception e) {
-            log.error("AI Provider failure for session {}: {}", sessionId, e.getMessage(), e);
-            return buildFrontendResponse(session, "The Legal Assistant is temporarily unavailable. Your message has been saved. Please try again shortly.");
+            log.warn("AI Provider failure for session {}: {}", sessionId, e.getMessage());
+            String fallbackMsg = getAiFailureFallbackMessage(detectedLang);
+            persistAiMessage(session, fallbackMsg, MessageType.TEXT);
+            sessionRepository.save(session);
+            return buildFrontendResponse(session, fallbackMsg);
         }
 
         // 10. Handle Out-Of-Scope query
@@ -972,6 +975,15 @@ public class LegalConversationOrchestratorImpl implements LegalConversationOrche
         } else {
             return "आपण तुमच्या " + topic + " या विषयावर बोलत आहोत.";
         }
+    }
+
+    private String getAiFailureFallbackMessage(String detectedLang) {
+        if ("MARATHI".equalsIgnoreCase(detectedLang)) {
+            return "एआय असिस्टंट सध्या तात्पुरता उपलब्ध नाही. तुमचा संदेश जतन करण्यात आला आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.";
+        } else if ("HINDI".equalsIgnoreCase(detectedLang)) {
+            return "एआई असिस्टेंट अभी अस्थायी रूप से उपलब्ध नहीं है। आपका संदेश सहेज लिया गया है। कृपया थोड़ी देर बाद पुनः प्रयास करें।";
+        }
+        return "The Legal Assistant is temporarily unavailable. Your message has been saved. Please try again shortly.";
     }
 
     private LegalIntakeResponseDTO buildFrontendResponse(LegalIntakeSession session, String assistantMessage) {
