@@ -34,6 +34,15 @@ public class CustomerLegalAssistanceController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Active session retrieved.", response));
     }
 
+    @GetMapping("/sessions")
+    @Operation(summary = "Get all intake sessions for the customer", description = "Retrieves a lightweight list of all past and active sessions.")
+    public ResponseEntity<ApiResponseDTO<java.util.List<com.adalat.dto.ai.SessionSummaryDTO>>> getAllSessions(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long customerId = resolveCustomerId(userDetails);
+        java.util.List<com.adalat.dto.ai.SessionSummaryDTO> sessions = orchestrator.getAllSessions(customerId);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Sessions retrieved.", sessions));
+    }
+
     @GetMapping("/sessions/{sessionId}")
     @Operation(summary = "Get intake session state", description = "Fetches the current conversation state and summaries for the session")
     public ResponseEntity<ApiResponseDTO<LegalIntakeResponseDTO>> getSession(

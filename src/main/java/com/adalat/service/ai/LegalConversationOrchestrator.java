@@ -33,5 +33,10 @@ public interface LegalConversationOrchestrator {
      * @param action Must be "CONNECT_LAWYER" or "AI_ONLY"
      */
     LegalIntakeResponseDTO handleNextStepChoice(Long customerId, Long sessionId, String action);
+
+    /**
+     * Retrieves all sessions for a specific customer, ordered by newest first.
+     */
+    java.util.List<com.adalat.dto.ai.SessionSummaryDTO> getAllSessions(Long customerId);
 }
 

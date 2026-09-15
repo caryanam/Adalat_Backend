@@ -49,4 +49,26 @@ public class LawyerMatchingService {
                 best.getLawyerId(), best.getFullName(), best.getPracticeAreas(), best.getLocation(), best.getRating());
         return Optional.of(best);
     }
+
+    public List<Lawyer> findTopMatches(LegalCategory category, String city, int limit) {
+        List<Lawyer> eligible = lawyerRepository.findByVerificationStatusAndAccountStatusAndAvailable(
+                VerificationStatus.APPROVED, AccountStatus.ACTIVE, true);
+
+        if (eligible.isEmpty()) {
+            return List.of();
+        }
+
+        PracticeArea targetArea = (category != null) ? category.getDefaultPracticeArea() : null;
+        String cityLower = (city != null) ? city.trim().toLowerCase() : null;
+
+        return eligible.stream()
+                .sorted(Comparator
+                        .comparingInt((Lawyer l) -> (targetArea != null && l.getPracticeAreas().contains(targetArea)) ? 0 : 1)
+                        .thenComparingInt(l -> (cityLower != null && l.getLocation() != null && l.getLocation().toLowerCase().contains(cityLower)) ? 0 : 1)
+                        .thenComparing((Lawyer l) -> l.getRating() != null ? l.getRating() : 0.0, Comparator.reverseOrder())
+                        .thenComparingInt(l -> l.getTotalConsultations() != null ? l.getTotalConsultations() : 0)
+                )
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
 }

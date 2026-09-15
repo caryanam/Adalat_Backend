@@ -33,4 +33,5 @@ public class LegalIntakeResponseDTO {
     private List<String> availableActions;
     private Long consultationId;
     private LawyerInfoDTO matchedLawyer;
+    private List<LawyerInfoDTO> suggestedLawyers;
 }

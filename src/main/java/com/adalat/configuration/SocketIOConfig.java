@@ -79,6 +79,12 @@ public class SocketIOConfig {
 
         this.server = new SocketIOServer(config);
         registerListeners(this.server);
+        try {
+            this.server.start();
+            log.info("=== Socket.IO Server successfully started on {}:{} ===", host, port);
+        } catch (Exception e) {
+            log.error("Failed to start Socket.IO server: {}", e.getMessage(), e);
+        }
         return this.server;
     }
 
