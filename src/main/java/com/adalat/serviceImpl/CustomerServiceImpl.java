@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -32,6 +33,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final com.adalat.service.EmailOtpService emailOtpService;
 
     // ─── 1. REGISTER ───────────────────────────────────────────────────────────
 
@@ -62,6 +64,11 @@ public class CustomerServiceImpl implements CustomerService {
             throw new DuplicateResourceException("A customer with this mobile number already exists.");
         }
 
+        // Enforce Email Verification inline
+        if (!emailOtpService.isEmailVerified(request.getEmail(), Role.CUSTOMER)) {
+            throw new IllegalArgumentException("Please verify your email address before registering.");
+        }
+
         // Check if payment transaction ID was supplied during registration (₹99 paid upfront in modal)
         boolean isPaidUpfront = request.getPaymentTransactionId() != null && !request.getPaymentTransactionId().isBlank();
 
@@ -76,6 +83,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .accountStatus(isPaidUpfront ? AccountStatus.ACTIVE : AccountStatus.ACTIVE)
                 .termsAccepted(request.getTermsAccepted())
                 .privacyPolicyAccepted(request.getPrivacyPolicyAccepted())
+                .emailVerified(true)
                 .build();
 
         Customer saved = customerRepository.save(customer);
@@ -225,6 +233,11 @@ public class CustomerServiceImpl implements CustomerService {
             );
         }
 
+        // Email Verification gate
+        if (!Boolean.TRUE.equals(customer.getEmailVerified())) {
+            throw new IllegalArgumentException("Please verify your email address before logging in.");
+        }
+
         // Account active gate
         if (customer.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new IllegalArgumentException("Your account is not active. Please contact support.");
@@ -256,5 +269,66 @@ public class CustomerServiceImpl implements CustomerService {
                 .token(token)
                 .customer(customerInfo)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public CustomerInfoDTO updateProfile(Long customerId, CustomerUpdateProfileRequestDTO request) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        // Check if email is being updated and if it's already taken
+        if (!customer.getEmail().equalsIgnoreCase(request.getEmail())) {
+            if (customerRepository.existsByEmail(request.getEmail())) {
+                throw new DuplicateResourceException("Email address is already registered.");
+            }
+            if (!emailOtpService.isEmailVerified(request.getEmail(), Role.CUSTOMER)) {
+                throw new IllegalArgumentException("Please verify your new email address with the OTP sent to your email before updating your profile.");
+            }
+            customer.setEmailVerified(true);
+            customer.setEmailVerifiedAt(LocalDateTime.now());
+        }
+
+        // Check if mobile number is being updated and if it's already taken by someone else
+        if (!customer.getMobileNumber().equals(request.getMobileNumber())) {
+            if (customerRepository.existsByMobileNumber(request.getMobileNumber())) {
+                throw new DuplicateResourceException("Mobile number is already registered.");
+            }
+        }
+
+        customer.setFullName(request.getFullName());
+        customer.setEmail(request.getEmail());
+        customer.setMobileNumber(request.getMobileNumber());
+        
+        customerRepository.save(customer);
+        log.info("Customer profile updated: id={}", customerId);
+
+        return CustomerInfoDTO.builder()
+                .customerId(customer.getCustomerId())
+                .fullName(customer.getFullName())
+                .email(customer.getEmail())
+                .mobileNumber(customer.getMobileNumber())
+                .paymentStatus(customer.getPaymentStatus())
+                .accountStatus(customer.getAccountStatus())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long customerId, ChangePasswordRequestDTO request) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match.");
+        }
+
+        if (!emailOtpService.isEmailVerified(customer.getEmail(), Role.CUSTOMER)) {
+            throw new IllegalArgumentException("Please verify the OTP sent to your registered email before changing your password.");
+        }
+
+        customer.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        customerRepository.save(customer);
+        log.info("Password successfully changed for customer id={}", customerId);
     }
 }

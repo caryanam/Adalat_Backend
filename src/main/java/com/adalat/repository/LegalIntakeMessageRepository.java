@@ -17,4 +17,9 @@ public interface LegalIntakeMessageRepository extends JpaRepository<LegalIntakeM
 
     // Find the latest message in this session
     java.util.Optional<LegalIntakeMessage> findFirstBySessionIdOrderByIdDesc(Long sessionId);
+
+    // Delete all messages for a specific session
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM LegalIntakeMessage m WHERE m.session.id = :sessionId")
+    void deleteBySessionId(@org.springframework.data.repository.query.Param("sessionId") Long sessionId);
 }

@@ -39,4 +39,6 @@ public interface ConsultationRequestService {
     ConsultationRequestResponseDTO confirmAppointmentByCustomer(Long customerId, Long requestId, String action);
 
     ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId);
+
+    ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId, String amount);
 }

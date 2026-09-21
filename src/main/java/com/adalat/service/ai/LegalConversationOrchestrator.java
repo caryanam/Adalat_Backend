@@ -38,5 +38,10 @@ public interface LegalConversationOrchestrator {
      * Retrieves all sessions for a specific customer, ordered by newest first.
      */
     java.util.List<com.adalat.dto.ai.SessionSummaryDTO> getAllSessions(Long customerId);
+
+    /**
+     * Deletes a specific session and all its messages for the authenticated customer.
+     */
+    void deleteSession(Long customerId, Long sessionId);
 }
 

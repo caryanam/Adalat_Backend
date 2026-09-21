@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -396,10 +397,16 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         };
 
         PaymentStatus paymentStatus = null;
-        if (req.getStatus() == ConsultationRequestStatus.ACTIVE || req.getStatus() == ConsultationRequestStatus.COMPLETED) {
+        boolean isPaid = paymentTransactionRepository.findByConsultationRequestAndStatus(req, PaymentStatus.PAID).isPresent();
+        if (isPaid) {
             paymentStatus = PaymentStatus.PAID;
         } else if (req.getStatus() == ConsultationRequestStatus.PAYMENT_PENDING) {
             paymentStatus = PaymentStatus.PENDING;
+        }
+
+        Boolean isFreeChatTimeOver = false;
+        if (req.getChatStartedAt() != null) {
+            isFreeChatTimeOver = LocalDateTime.now().isAfter(req.getChatStartedAt().plusMinutes(2));
         }
 
         return ConsultationRequestResponseDTO.builder()
@@ -411,6 +418,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .lawyerId(req.getLawyer().getLawyerId())
                 .lawyerName(req.getLawyer().getFullName())
                 .lawyerLocation(req.getLawyer().getLocation())
+                .lawyerUpiId(req.getLawyer().getUpiId() != null && !req.getLawyer().getUpiId().isBlank() ? req.getLawyer().getUpiId() : "advocate@upi")
                 .lawyerRate(req.getLawyer().getConsultationFee() != null ? req.getLawyer().getConsultationFee() : (req.getLawyer().getConsultationRate() != null ? req.getLawyer().getConsultationRate().getAmount() : 99))
                 .category(req.getCategory())
                 .categoryDisplayName(req.getCategory() != null ? req.getCategory().getDisplayName() : null)
@@ -421,6 +429,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .scheduledAt(req.getScheduledAt())
                 .paymentAmount(req.getPaymentAmount())
                 .paymentStatus(paymentStatus)
+                .chatStartedAt(req.getChatStartedAt())
+                .isFreeChatTimeOver(isFreeChatTimeOver)
                 .assignedDate(req.getAssignedDate())
                 .assignedTime(req.getAssignedTime())
                 .customerConfirmationStatus(req.getCustomerConfirmationStatus())
@@ -433,16 +443,65 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
     @Override
     @Transactional
     public ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId) {
+        return unlockPaidConsultation(requestId, paymentId, null);
+    }
+
+    @Override
+    @Transactional
+    public ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId, String amountStr) {
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
 
-        request.setStatus(ConsultationRequestStatus.PAYMENT_COMPLETED);
-        if (request.getPaymentAmount() == null) {
-            request.setPaymentAmount(new BigDecimal("199.00"));
+        BigDecimal fee = null;
+        if (amountStr != null && !amountStr.isBlank()) {
+            try {
+                fee = new BigDecimal(amountStr.replace("₹", "").replace(",", "").trim());
+            } catch (Exception e) {
+                fee = null;
+            }
         }
 
+        if (fee == null) {
+            fee = request.getPaymentAmount() != null
+                    ? request.getPaymentAmount()
+                    : (request.getLawyer().getConsultationFee() != null
+                        ? new BigDecimal(request.getLawyer().getConsultationFee())
+                        : (request.getLawyer().getConsultationRate() != null
+                            ? new BigDecimal(request.getLawyer().getConsultationRate().getAmount())
+                            : new BigDecimal("199.00")));
+        }
+
+        request.setPaymentAmount(fee);
+        request.setStatus(ConsultationRequestStatus.PAYMENT_COMPLETED);
         ConsultationRequest saved = consultationRequestRepository.save(request);
-        log.info("Paid consultation unlocked for requestId={}, paymentId={}", requestId, paymentId);
+
+        // Record PaymentTransaction
+        String cleanOrderId = "ORD_CONS_" + saved.getId() + "_" + (paymentId != null && !paymentId.isBlank() ? paymentId : System.currentTimeMillis());
+        PaymentTransaction transaction = paymentTransactionRepository.findByConsultationRequestAndStatus(saved, PaymentStatus.PAID)
+                .orElseGet(() -> {
+                    List<PaymentTransaction> list = paymentTransactionRepository.findByConsultationRequest(saved);
+                    if (!list.isEmpty()) {
+                        return list.get(0);
+                    }
+                    return PaymentTransaction.builder()
+                            .customer(saved.getCustomer())
+                            .consultationRequest(saved)
+                            .orderId(cleanOrderId)
+                            .paymentType("CONSULTATION_FEE")
+                            .build();
+                });
+
+        transaction.setCustomer(saved.getCustomer());
+        transaction.setConsultationRequest(saved);
+        transaction.setAmount(fee);
+        transaction.setPaymentType("CONSULTATION_FEE");
+        transaction.setStatus(PaymentStatus.PAID);
+        if (paymentId != null && !paymentId.isBlank()) {
+            transaction.setGatewayPaymentId(paymentId);
+        }
+        paymentTransactionRepository.save(transaction);
+
+        log.info("Paid consultation unlocked for requestId={}, paymentId={}, amount={}", requestId, paymentId, fee);
         return toDTO(saved);
     }
 }

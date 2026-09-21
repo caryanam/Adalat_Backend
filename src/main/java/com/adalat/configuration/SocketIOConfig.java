@@ -179,9 +179,15 @@ public class SocketIOConfig {
                 }
 
                 log.info("Message sent in room {}: messageId={}, senderId={}", roomName, savedMsg.getId(), userId);
+            } catch (IllegalStateException e) {
+                if ("FREE_CHAT_OVER".equals(e.getMessage())) {
+                    client.sendEvent("error", Map.of("code", "FREE_CHAT_OVER", "message", "Free chat limit (2 mins) exceeded. Payment required."));
+                } else {
+                    client.sendEvent("error", Map.of("message", "Error saving message: " + e.getMessage()));
+                }
             } catch (Exception e) {
-                log.error("Failed to send consultation message: {}", e.getMessage());
-                client.sendEvent("error", Map.of("message", e.getMessage()));
+                log.error("Failed to save and broadcast message", e);
+                client.sendEvent("error", Map.of("message", "Internal server error while saving message."));
             }
         });
 

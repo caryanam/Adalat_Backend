@@ -99,6 +99,12 @@ public class Lawyer {
     @Builder.Default
     private AccountStatus accountStatus = AccountStatus.INACTIVE;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    private LocalDateTime emailVerifiedAt;
+
     // ─── Profile Enhancements ────────────────────────────────────────────────
     @Builder.Default
     private Boolean available = true;

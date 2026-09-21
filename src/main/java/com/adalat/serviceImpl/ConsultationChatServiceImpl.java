@@ -32,6 +32,7 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
     private final ConsultationRequestRepository consultationRequestRepository;
     private final CustomerRepository customerRepository;
     private final LawyerRepository lawyerRepository;
+    private final com.adalat.repository.PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
     @Transactional
@@ -76,6 +77,21 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
         if (request.getStatus() != ConsultationRequestStatus.ACTIVE && request.getStatus() != ConsultationRequestStatus.COMPLETED) {
             request.setStatus(ConsultationRequestStatus.ACTIVE);
             consultationRequestRepository.save(request);
+        }
+
+        if (request.getChatStartedAt() == null) {
+            request.setChatStartedAt(LocalDateTime.now());
+            consultationRequestRepository.save(request);
+        }
+
+        if (senderType == SenderType.CUSTOMER) {
+            boolean isFreeChatTimeOver = LocalDateTime.now().isAfter(request.getChatStartedAt().plusMinutes(2));
+            if (isFreeChatTimeOver) {
+                boolean isPaid = paymentTransactionRepository.findByConsultationRequestAndStatus(request, com.adalat.enums.PaymentStatus.PAID).isPresent();
+                if (!isPaid) {
+                    throw new IllegalStateException("FREE_CHAT_OVER");
+                }
+            }
         }
 
         Long actualSenderId = senderId;

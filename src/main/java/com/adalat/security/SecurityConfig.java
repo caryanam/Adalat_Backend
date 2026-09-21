@@ -48,7 +48,7 @@ public class SecurityConfig {
                                 "/uploads/**"
                         ).permitAll()
                         .requestMatchers("/auth/logout", "/auth/me").authenticated()
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                         .requestMatchers(
                                 "/api/customer/register",
                                 "/api/customer/login",
@@ -59,7 +59,8 @@ public class SecurityConfig {
                                 "/api/lawyer/register",
                                 "/api/lawyers/register/**",
                                 "/api/lawyers/*/documents",
-                                "/api/lawyers/login"
+                                "/api/lawyers/login",
+                                "/api/lawyers/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/lawyers/**",
@@ -69,7 +70,7 @@ public class SecurityConfig {
                                 "/api/legal-services/**"
                         ).permitAll()
                         .requestMatchers("/api/customer/**").hasAnyRole("CUSTOMER", "ADMIN")
-                        .requestMatchers("/api/lawyer/**").hasAnyRole("LAWYER", "ADMIN")
+                        .requestMatchers("/api/lawyer/**", "/api/lawyers/**").hasAnyRole("LAWYER", "ADMIN")
                         .requestMatchers("/api/appointments/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")
                         .requestMatchers("/api/cases/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")
                         .requestMatchers("/api/lawyer-requests/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")

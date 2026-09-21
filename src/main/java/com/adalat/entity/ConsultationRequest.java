@@ -59,6 +59,8 @@ public class ConsultationRequest {
 
     private String customerConfirmationStatus;
 
+    private LocalDateTime chatStartedAt;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

@@ -58,6 +58,12 @@ public class Customer {
     @Builder.Default
     private Boolean privacyPolicyAccepted = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    private LocalDateTime emailVerifiedAt;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

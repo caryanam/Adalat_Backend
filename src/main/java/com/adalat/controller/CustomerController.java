@@ -54,4 +54,26 @@ public class CustomerController {
         CustomerLoginResponseDTO response = customerService.loginCustomer(request);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Login successful", response));
     }
+
+    // === PUT /api/customer/profile ===
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponseDTO<CustomerInfoDTO>> updateProfile(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.adalat.security.CustomUserDetails userDetails,
+            @Valid @RequestBody CustomerUpdateProfileRequestDTO request) {
+
+        CustomerInfoDTO response = customerService.updateProfile(userDetails.getId(), request);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Profile updated successfully", response));
+    }
+
+    // === PUT /api/customer/change-password ===
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
+    @PutMapping("/change-password")
+    public ResponseEntity<ApiResponseDTO<Void>> changePassword(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.adalat.security.CustomUserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequestDTO request) {
+
+        customerService.changePassword(userDetails.getId(), request);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Password changed successfully.", null));
+    }
 }

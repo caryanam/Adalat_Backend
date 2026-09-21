@@ -89,6 +89,17 @@ public class CustomerLegalAssistanceController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Next step processed.", response));
     }
 
+    @DeleteMapping("/sessions/{sessionId}")
+    @Operation(summary = "Delete intake session", description = "Deletes a specific intake session and all its messages.")
+    public ResponseEntity<ApiResponseDTO<Void>> deleteSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long sessionId) {
+
+        Long customerId = resolveCustomerId(userDetails);
+        orchestrator.deleteSession(customerId, sessionId);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Session deleted successfully.", null));
+    }
+
     private Long resolveCustomerId(CustomUserDetails userDetails) {
         if (userDetails == null || userDetails.getId() == null) {
             throw new SecurityException("User must be authenticated to access legal assistance.");

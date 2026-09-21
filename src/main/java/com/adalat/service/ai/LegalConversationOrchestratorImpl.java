@@ -209,13 +209,22 @@ public class LegalConversationOrchestratorImpl implements LegalConversationOrche
 
         // Handle GREETING intent on turn 0/1
         if ("GREETING".equals(detectedIntent) && session.getQuestionCount() == 0) {
+            LegalIntakeMessage customerMsg = LegalIntakeMessage.builder()
+                    .session(session)
+                    .senderType(SenderType.CUSTOMER)
+                    .messageType(MessageType.TEXT)
+                    .message(userText)
+                    .clientMessageId(clientMsgId)
+                    .build();
+            messageRepository.save(customerMsg);
+
             String greetingMsg;
             if ("ENGLISH".equals(detectedLang)) {
-                greetingMsg = "Hello! I am your Adalat AI Legal Assistant. Please describe your legal problem or what happened, and I will help organize your case for an advocate.";
+                greetingMsg = "Hi there! Please go ahead and describe your legal problem or what happened.";
             } else if ("HINDI".equals(detectedLang)) {
-                greetingMsg = "नमस्ते! मैं आपका अदालत AI लीगल असिस्टेंट हूँ। कृपया अपनी कानूनी समस्या या घटना का विवरण बताएं, मैं आपके केस को वकील के लिए व्यवस्थित करने में मदद करूंगा।";
+                greetingMsg = "नमस्ते! कृपया अपनी कानूनी समस्या का विस्तार से वर्णन करें।";
             } else {
-                greetingMsg = "नमस्कार! मी तुमचा अदालत AI लीगल असिस्टंट आहे. कृपया तुमची कायदेशीर अडचण किंवा घडलेली घटना सांगा, मी वकिलांसाठी तुमचे प्रकरण व्यवस्थित मांडण्यात मदत करेन.";
+                greetingMsg = "नमस्कार! कृपया तुमच्या कायदेशीर समस्येचे वर्णन करा.";
             }
             persistAiMessage(session, greetingMsg, MessageType.TEXT);
 
@@ -1030,8 +1039,16 @@ public class LegalConversationOrchestratorImpl implements LegalConversationOrche
                         .fullName(l.getFullName())
                         .location(l.getLocation())
                         .practiceAreas(l.getPracticeAreas())
+                        .languages(l.getLanguages())
                         .rating(l.getRating())
                         .consultationFee(l.getConsultationFee())
+                        .yearsOfExperience(l.getYearsOfExperience())
+                        .bio(l.getBio())
+                        .barEnrollmentNumber(l.getBarEnrollmentNumber())
+                        .profilePhotoUrl(l.getProfilePhotoUrl())
+                        .education(l.getEducation())
+                        .available(l.getAvailable())
+                        .totalConsultations(l.getTotalConsultations())
                         .build()
                 ).toList();
             }
@@ -1314,6 +1331,21 @@ public class LegalConversationOrchestratorImpl implements LegalConversationOrche
                 .consultationId(s.getAssignedConsultationRequestId())
                 .build()
         ).collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteSession(Long customerId, Long sessionId) {
+        LegalIntakeSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Legal intake session not found with ID: " + sessionId));
+
+        if (!session.getCustomer().getCustomerId().equals(customerId)) {
+            throw new SecurityException("Unauthorized access to legal intake session.");
+        }
+
+        log.info("Deleting session {} and all its messages for customer {}", sessionId, customerId);
+        messageRepository.deleteBySessionId(sessionId);
+        sessionRepository.delete(session);
     }
 }
 

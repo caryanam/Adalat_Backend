@@ -1,6 +1,12 @@
 package com.adalat.service;
 
 import com.adalat.dto.*;
+import com.adalat.enums.Language;
+import com.adalat.enums.PracticeArea;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.Set;
 
 public interface LawyerService {
 
@@ -27,9 +33,34 @@ public interface LawyerService {
 
     LawyerProfileResponseDTO rejectLawyer(Long lawyerId, AdminRejectRequestDTO request);
 
-    java.util.List<LawyerProfileResponseDTO> getPendingLawyers();
+    List<LawyerProfileResponseDTO> getPendingLawyers();
 
     LawyerProfileResponseDTO getLawyerById(Long lawyerId);
 
-    java.util.List<LawyerProfileResponseDTO> getPublicDirectoryLawyers();
+    List<LawyerProfileResponseDTO> getPublicDirectoryLawyers();
+
+    // ─── Profile & Security Operations ─────────────────────────────────────────
+    LawyerProfileResponseDTO updateProfile(Long lawyerId, LawyerUpdateProfileRequestDTO request);
+
+    LawyerProfileResponseDTO updateProfilePhoto(Long lawyerId, MultipartFile file);
+
+    void sendEmailChangeOtp(Long lawyerId, String newEmail);
+
+    LawyerProfileResponseDTO verifyAndUpdateEmail(Long lawyerId, String newEmail, String otp);
+
+    void changePassword(Long lawyerId, LawyerChangePasswordRequestDTO request);
+
+    void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword);
+
+    LawyerProfileResponseDTO updatePricingFee(Long lawyerId, Integer consultationFee);
+
+    LawyerProfileResponseDTO updatePracticeAreas(Long lawyerId, Set<PracticeArea> practiceAreas);
+
+    LawyerProfileResponseDTO updateLanguages(Long lawyerId, Set<Language> languages);
+
+    LawyerProfileResponseDTO updateUpiId(Long lawyerId, String upiId);
+
+    LawyerProfileResponseDTO updateBio(Long lawyerId, String bio);
+
+    LawyerEarningsResponseDTO getLawyerEarnings(Long lawyerId);
 }

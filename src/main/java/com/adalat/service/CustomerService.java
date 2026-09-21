@@ -11,4 +11,8 @@ public interface CustomerService {
     ApiResponseDTO<Void> verifyPayment(PaymentVerifyRequestDTO request);
 
     CustomerLoginResponseDTO loginCustomer(LoginRequestDTO request);
+
+    CustomerInfoDTO updateProfile(Long customerId, CustomerUpdateProfileRequestDTO request);
+
+    void changePassword(Long customerId, ChangePasswordRequestDTO request);
 }

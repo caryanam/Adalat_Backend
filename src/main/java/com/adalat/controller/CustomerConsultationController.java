@@ -101,8 +101,15 @@ public class CustomerConsultationController {
 
         String text = body.get("text") != null ? body.get("text") : body.get("message");
         Long customerId = userDetails != null ? userDetails.getId() : 1L;
-        ConsultationChatMessageDTO dto = consultationChatService.saveMessage(requestId, customerId, com.adalat.enums.SenderType.CUSTOMER, text);
-        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Message saved.", dto));
+        try {
+            ConsultationChatMessageDTO dto = consultationChatService.saveMessage(requestId, customerId, com.adalat.enums.SenderType.CUSTOMER, text);
+            return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Message saved.", dto));
+        } catch (IllegalStateException e) {
+            if ("FREE_CHAT_OVER".equals(e.getMessage())) {
+                return ResponseEntity.status(403).body(new ApiResponseDTO<>("FREE_CHAT_OVER", "Free chat limit (2 mins) exceeded. Payment required.", null));
+            }
+            throw e;
+        }
     }
 
     @PostMapping("/{requestId}/complete")
@@ -123,7 +130,8 @@ public class CustomerConsultationController {
             @RequestBody(required = false) java.util.Map<String, String> body) {
 
         String paymentId = body != null ? body.get("paymentId") : "PAY_MOCK_" + System.currentTimeMillis();
-        ConsultationRequestResponseDTO response = consultationRequestService.unlockPaidConsultation(requestId, paymentId);
+        String amount = body != null ? body.get("amount") : null;
+        ConsultationRequestResponseDTO response = consultationRequestService.unlockPaidConsultation(requestId, paymentId, amount);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Paid consultation unlocked successfully.", response));
     }
 }
