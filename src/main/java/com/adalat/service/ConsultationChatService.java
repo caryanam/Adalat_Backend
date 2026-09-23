@@ -13,7 +13,17 @@ public interface ConsultationChatService {
 
     ConsultationChatMessageDTO saveMessage(Long requestId, Long senderId, SenderType senderType, String message);
 
-    void markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType);
+    ConsultationChatMessageDTO saveMessage(Long requestId, Long senderId, SenderType senderType, String message, 
+                                          String attachmentUrl, String attachmentName, String attachmentType, Long attachmentSize);
 
-    void markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType);
+    ConsultationChatMessageDTO uploadAndSaveAttachment(Long requestId, Long senderId, SenderType senderType, 
+                                                       org.springframework.web.multipart.MultipartFile file, String text);
+
+    List<Long> markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType);
+
+    List<Long> markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType, List<Long> messageIds);
+
+    List<Long> markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType);
+
+    List<Long> markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType, List<Long> messageIds);
 }

@@ -20,7 +20,12 @@ public class ConsultationChatMessageDTO {
     private Long senderId;
     private SenderType senderType;
     private String senderName;
+    private String senderProfileImageUrl;
     private String message;
+    private String attachmentUrl;
+    private String attachmentName;
+    private String attachmentType;
+    private Long attachmentSize;
     private ChatMessageStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime deliveredAt;

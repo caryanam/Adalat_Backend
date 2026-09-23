@@ -76,4 +76,15 @@ public class CustomerController {
         customerService.changePassword(userDetails.getId(), request);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Password changed successfully.", null));
     }
+
+    // === GET /api/customer/payments ===
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/payments")
+    public ResponseEntity<ApiResponseDTO<java.util.List<CustomerPaymentTransactionDTO>>> getPaymentHistory(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.adalat.security.CustomUserDetails userDetails) {
+
+        java.util.List<CustomerPaymentTransactionDTO> response = customerService.getCustomerPaymentHistory(userDetails.getId());
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Payment history fetched successfully", response));
+    }
 }
+

@@ -64,11 +64,63 @@ public class LawyerConsultationController {
     public ResponseEntity<ApiResponseDTO<ConsultationChatMessageDTO>> sendMessage(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long requestId,
-            @RequestBody java.util.Map<String, String> body) {
+            @RequestBody java.util.Map<String, Object> body) {
 
-        String text = body.get("text") != null ? body.get("text") : body.get("message");
-        ConsultationChatMessageDTO dto = consultationChatService.saveMessage(requestId, getLawyerId(userDetails), com.adalat.enums.SenderType.LAWYER, text);
+        String text = body.get("text") != null ? body.get("text").toString() : (body.get("message") != null ? body.get("message").toString() : "");
+        String attachmentUrl = body.get("attachmentUrl") != null ? body.get("attachmentUrl").toString() : null;
+        String attachmentName = body.get("attachmentName") != null ? body.get("attachmentName").toString() : null;
+        String attachmentType = body.get("attachmentType") != null ? body.get("attachmentType").toString() : null;
+        Long attachmentSize = body.get("attachmentSize") != null ? Long.valueOf(body.get("attachmentSize").toString()) : null;
+
+        ConsultationChatMessageDTO dto = consultationChatService.saveMessage(
+                requestId, getLawyerId(userDetails), com.adalat.enums.SenderType.LAWYER, text,
+                attachmentUrl, attachmentName, attachmentType, attachmentSize);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Message saved.", dto));
+    }
+
+    @PostMapping(value = "/{requestId}/upload-attachment", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload and send advocate consultation chat attachment", description = "Uploads file to server and posts message with attachment to MySQL")
+    public ResponseEntity<ApiResponseDTO<ConsultationChatMessageDTO>> uploadAttachment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long requestId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "text", required = false) String text,
+            @RequestParam(value = "message", required = false) String message) {
+
+        String messageText = text != null ? text : (message != null ? message : "");
+        ConsultationChatMessageDTO dto = consultationChatService.uploadAndSaveAttachment(
+                requestId, getLawyerId(userDetails), com.adalat.enums.SenderType.LAWYER, file, messageText);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Attachment uploaded and message sent.", dto));
+    }
+
+    @PostMapping("/{requestId}/messages/seen")
+    @Operation(summary = "Mark customer consultation messages as seen", description = "Updates status of customer messages to SEEN in MySQL database")
+    public ResponseEntity<ApiResponseDTO<List<Long>>> markMessagesSeen(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long requestId,
+            @RequestBody(required = false) java.util.Map<String, Object> body) {
+
+        List<Long> messageIds = null;
+        if (body != null && body.containsKey("messageIds") && body.get("messageIds") instanceof List<?> list) {
+            messageIds = list.stream().map(o -> Long.valueOf(o.toString())).toList();
+        }
+        List<Long> updated = consultationChatService.markMessagesSeen(requestId, getLawyerId(userDetails), com.adalat.enums.SenderType.LAWYER, messageIds);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Messages marked as seen.", updated));
+    }
+
+    @PostMapping("/{requestId}/messages/delivered")
+    @Operation(summary = "Mark customer consultation messages as delivered", description = "Updates status of customer messages to DELIVERED in MySQL database")
+    public ResponseEntity<ApiResponseDTO<List<Long>>> markMessagesDelivered(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long requestId,
+            @RequestBody(required = false) java.util.Map<String, Object> body) {
+
+        List<Long> messageIds = null;
+        if (body != null && body.containsKey("messageIds") && body.get("messageIds") instanceof List<?> list) {
+            messageIds = list.stream().map(o -> Long.valueOf(o.toString())).toList();
+        }
+        List<Long> updated = consultationChatService.markMessagesDelivered(requestId, getLawyerId(userDetails), com.adalat.enums.SenderType.LAWYER, messageIds);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Messages marked as delivered.", updated));
     }
 
     @PostMapping("/{requestId}/complete")

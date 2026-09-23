@@ -37,6 +37,7 @@ public class LawyerProfileResponseDTO {
     private AccountStatus accountStatus;
     private Boolean available;
     private Double rating;
+    private Integer ratingCount;
     private Integer totalConsultations;
     private String profilePhotoUrl;
     private String rejectionReason;

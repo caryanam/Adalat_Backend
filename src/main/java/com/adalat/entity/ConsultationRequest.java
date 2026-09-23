@@ -61,6 +61,13 @@ public class ConsultationRequest {
 
     private LocalDateTime chatStartedAt;
 
+    private Integer rating;
+
+    @Column(columnDefinition = "TEXT")
+    private String ratingComment;
+
+    private LocalDateTime ratedAt;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

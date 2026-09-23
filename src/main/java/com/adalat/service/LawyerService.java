@@ -35,6 +35,8 @@ public interface LawyerService {
 
     List<LawyerProfileResponseDTO> getPendingLawyers();
 
+    List<LawyerProfileResponseDTO> getAllLawyersForAdmin();
+
     LawyerProfileResponseDTO getLawyerById(Long lawyerId);
 
     List<LawyerProfileResponseDTO> getPublicDirectoryLawyers();

@@ -32,8 +32,17 @@ public class ConsultationChatMessage {
     @Column(nullable = false)
     private SenderType senderType;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String message;
+
+    @Column(columnDefinition = "TEXT")
+    private String attachmentUrl;
+
+    private String attachmentName;
+
+    private String attachmentType;
+
+    private Long attachmentSize;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

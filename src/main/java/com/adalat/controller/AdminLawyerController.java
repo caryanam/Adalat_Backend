@@ -16,6 +16,14 @@ public class AdminLawyerController {
 
     private final LawyerService lawyerService;
 
+    // GET all registered lawyers
+    @GetMapping
+    public ResponseEntity<ApiResponseDTO<List<LawyerProfileResponseDTO>>> getAllLawyers() {
+        List<LawyerProfileResponseDTO> list = lawyerService.getAllLawyersForAdmin();
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS",
+                "All registered lawyers retrieved.", list));
+    }
+
     // GET all pending (SUBMITTED + PENDING) applications
     @GetMapping("/pending")
     public ResponseEntity<ApiResponseDTO<List<LawyerProfileResponseDTO>>> getPending() {

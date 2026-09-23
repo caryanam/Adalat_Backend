@@ -16,10 +16,15 @@ import com.adalat.repository.LawyerRepository;
 import com.adalat.service.ConsultationChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.adalat.event.ChatMessageCreatedEvent;
+import com.adalat.event.ChatMessageDeliveredEvent;
+import com.adalat.event.ChatMessageSeenEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,38 +37,41 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
     private final ConsultationRequestRepository consultationRequestRepository;
     private final CustomerRepository customerRepository;
     private final LawyerRepository lawyerRepository;
+    private final com.adalat.repository.LawyerDocumentRepository lawyerDocumentRepository;
     private final com.adalat.repository.PaymentTransactionRepository paymentTransactionRepository;
+    private final com.adalat.service.FileStorageService fileStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ConsultationChatMessageDTO> getMessagesForCustomer(Long customerId, Long requestId) {
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElse(null);
 
         if (request == null) return List.of();
 
-        // Mark unread incoming messages as SEEN
-        markMessagesSeenInternal(request, SenderType.CUSTOMER);
-
+        // Strictly fetch messages with current database status (text or attachment present) - DO NOT auto-mark as SEEN
         return chatMessageRepository.findByConsultationRequestOrderByCreatedAtAsc(request)
                 .stream()
+                .filter(m -> (m.getMessage() != null && !m.getMessage().trim().isEmpty()) || 
+                             (m.getAttachmentUrl() != null && !m.getAttachmentUrl().trim().isEmpty()))
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ConsultationChatMessageDTO> getMessagesForLawyer(Long lawyerId, Long requestId) {
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElse(null);
 
         if (request == null) return List.of();
 
-        // Mark unread incoming messages as SEEN
-        markMessagesSeenInternal(request, SenderType.LAWYER);
-
+        // Strictly fetch messages with current database status (text or attachment present) - DO NOT auto-mark as SEEN
         return chatMessageRepository.findByConsultationRequestOrderByCreatedAtAsc(request)
                 .stream()
+                .filter(m -> (m.getMessage() != null && !m.getMessage().trim().isEmpty()) || 
+                             (m.getAttachmentUrl() != null && !m.getAttachmentUrl().trim().isEmpty()))
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -71,6 +79,20 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
     @Override
     @Transactional
     public ConsultationChatMessageDTO saveMessage(Long requestId, Long senderId, SenderType senderType, String message) {
+        return saveMessage(requestId, senderId, senderType, message, null, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public ConsultationChatMessageDTO saveMessage(Long requestId, Long senderId, SenderType senderType, String message,
+                                                  String attachmentUrl, String attachmentName, String attachmentType, Long attachmentSize) {
+        boolean hasText = message != null && !message.trim().isEmpty();
+        boolean hasAttachment = attachmentUrl != null && !attachmentUrl.trim().isEmpty();
+
+        if (!hasText && !hasAttachment) {
+            throw new IllegalArgumentException("Message must contain either text or an attachment.");
+        }
+
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
 
@@ -105,66 +127,153 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
                 .consultationRequest(request)
                 .senderId(actualSenderId)
                 .senderType(senderType)
-                .message(message)
-                .status(ChatMessageStatus.SENT)
+                .message(hasText ? message.trim() : "")
+                .attachmentUrl(attachmentUrl)
+                .attachmentName(attachmentName)
+                .attachmentType(attachmentType)
+                .attachmentSize(attachmentSize)
+                .status(ChatMessageStatus.SENT) // Saved strictly as SENT (1 grey tick)
                 .build();
 
         ConsultationChatMessage saved = chatMessageRepository.save(chatMessage);
-        log.info("Consultation message saved: id={}, requestId={}, senderType={}", saved.getId(), requestId, senderType);
+        log.info("Consultation message saved: id={}, requestId={}, senderType={}, hasAttachment={}, status=SENT", 
+                saved.getId(), requestId, senderType, hasAttachment);
 
-        return toDTO(saved);
+        ConsultationChatMessageDTO dto = toDTO(saved);
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new ChatMessageCreatedEvent(this, requestId, dto));
+        }
+
+        return dto;
     }
 
     @Override
     @Transactional
-    public void markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType) {
-        ConsultationRequest request = consultationRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
+    public ConsultationChatMessageDTO uploadAndSaveAttachment(Long requestId, Long senderId, SenderType senderType, 
+                                                              org.springframework.web.multipart.MultipartFile file, String text) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Attachment file cannot be empty.");
+        }
 
-        // Incoming messages for recipient are those where senderType != recipientType
+        try {
+            String attachmentUrl = fileStorageService.storeConsultationAttachment(requestId, file);
+            String attachmentName = file.getOriginalFilename();
+            String attachmentType = file.getContentType();
+            Long attachmentSize = file.getSize();
+
+            return saveMessage(requestId, senderId, senderType, text, attachmentUrl, attachmentName, attachmentType, attachmentSize);
+        } catch (java.io.IOException e) {
+            log.error("Failed to store consultation attachment for requestId={}", requestId, e);
+            throw new RuntimeException("Failed to upload attachment: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public List<Long> markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType) {
+        return markMessagesDelivered(requestId, recipientId, recipientType, null);
+    }
+
+    @Override
+    @Transactional
+    public List<Long> markMessagesDelivered(Long requestId, Long recipientId, SenderType recipientType, List<Long> messageIds) {
+        ConsultationRequest request = consultationRequestRepository.findById(requestId)
+                .orElse(null);
+
+        if (request == null) return List.of();
+
         List<ConsultationChatMessage> undelivered = chatMessageRepository.findByConsultationRequestAndSenderTypeNotAndStatus(
                 request, recipientType, ChatMessageStatus.SENT);
 
+        if (messageIds != null && !messageIds.isEmpty()) {
+            undelivered = undelivered.stream()
+                    .filter(m -> messageIds.contains(m.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        if (undelivered.isEmpty()) return List.of();
+
         LocalDateTime now = LocalDateTime.now();
+        List<Long> updatedIds = new ArrayList<>();
         for (ConsultationChatMessage msg : undelivered) {
             msg.setStatus(ChatMessageStatus.DELIVERED);
             msg.setDeliveredAt(now);
+            updatedIds.add(msg.getId());
         }
         chatMessageRepository.saveAll(undelivered);
+        log.info("Marked messages as DELIVERED: requestId={}, recipientType={}, messageIds={}", requestId, recipientType, updatedIds);
+
+        if (eventPublisher != null && !updatedIds.isEmpty()) {
+            eventPublisher.publishEvent(new ChatMessageDeliveredEvent(this, requestId, updatedIds));
+        }
+
+        return updatedIds;
     }
 
     @Override
     @Transactional
-    public void markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType) {
-        ConsultationRequest request = consultationRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
-
-        markMessagesSeenInternal(request, recipientType);
+    public List<Long> markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType) {
+        return markMessagesSeen(requestId, recipientId, recipientType, null);
     }
 
-    private void markMessagesSeenInternal(ConsultationRequest request, SenderType recipientType) {
+    @Override
+    @Transactional
+    public List<Long> markMessagesSeen(Long requestId, Long recipientId, SenderType recipientType, List<Long> messageIds) {
+        ConsultationRequest request = consultationRequestRepository.findById(requestId)
+                .orElse(null);
+
+        if (request == null) return List.of();
+
         List<ConsultationChatMessage> unseen = chatMessageRepository.findByConsultationRequestAndSenderTypeNotAndStatusNot(
                 request, recipientType, ChatMessageStatus.SEEN);
 
+        if (messageIds != null && !messageIds.isEmpty()) {
+            unseen = unseen.stream()
+                    .filter(m -> messageIds.contains(m.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        if (unseen.isEmpty()) return List.of();
+
         LocalDateTime now = LocalDateTime.now();
+        List<Long> updatedIds = new ArrayList<>();
         for (ConsultationChatMessage msg : unseen) {
             if (msg.getDeliveredAt() == null) {
                 msg.setDeliveredAt(now);
             }
             msg.setStatus(ChatMessageStatus.SEEN);
             msg.setSeenAt(now);
+            updatedIds.add(msg.getId());
         }
-        if (!unseen.isEmpty()) {
-            chatMessageRepository.saveAll(unseen);
+        chatMessageRepository.saveAll(unseen);
+        log.info("Marked messages as SEEN/READ: requestId={}, recipientType={}, messageIds={}", requestId, recipientType, updatedIds);
+
+        if (eventPublisher != null && !updatedIds.isEmpty()) {
+            eventPublisher.publishEvent(new ChatMessageSeenEvent(this, requestId, updatedIds));
         }
+
+        return updatedIds;
     }
 
     private ConsultationChatMessageDTO toDTO(ConsultationChatMessage msg) {
         String senderName = "User";
+        String senderProfileImageUrl = null;
         if (msg.getSenderType() == SenderType.CUSTOMER && msg.getConsultationRequest().getCustomer() != null) {
             senderName = msg.getConsultationRequest().getCustomer().getFullName();
         } else if (msg.getSenderType() == SenderType.LAWYER && msg.getConsultationRequest().getLawyer() != null) {
             senderName = msg.getConsultationRequest().getLawyer().getFullName();
+            senderProfileImageUrl = msg.getConsultationRequest().getLawyer().getProfilePhotoUrl();
+            if ((senderProfileImageUrl == null || senderProfileImageUrl.isBlank()) && lawyerDocumentRepository != null) {
+                List<com.adalat.entity.LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(msg.getConsultationRequest().getLawyer());
+                if (docs != null && !docs.isEmpty()) {
+                    senderProfileImageUrl = docs.stream()
+                            .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO ||
+                                         (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                            .map(com.adalat.entity.LawyerDocument::getFileUrl)
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
         }
 
         return ConsultationChatMessageDTO.builder()
@@ -173,7 +282,12 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
                 .senderId(msg.getSenderId())
                 .senderType(msg.getSenderType())
                 .senderName(senderName)
+                .senderProfileImageUrl(senderProfileImageUrl)
                 .message(msg.getMessage())
+                .attachmentUrl(msg.getAttachmentUrl())
+                .attachmentName(msg.getAttachmentName())
+                .attachmentType(msg.getAttachmentType())
+                .attachmentSize(msg.getAttachmentSize())
                 .status(msg.getStatus())
                 .createdAt(msg.getCreatedAt())
                 .deliveredAt(msg.getDeliveredAt())

@@ -31,6 +31,7 @@ public class PublicLawyerProfileDTO {
     private Integer consultationFee;
     private VerificationStatus verificationStatus;
     private Double rating;
+    private Integer ratingCount;
     private Integer totalConsultations;
     private Boolean available;
     private String profilePhotoUrl;

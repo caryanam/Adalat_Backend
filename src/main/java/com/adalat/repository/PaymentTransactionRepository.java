@@ -20,6 +20,12 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     List<PaymentTransaction> findByCustomer(Customer customer);
 
+    List<PaymentTransaction> findByCustomerOrderByCreatedAtDesc(Customer customer);
+
+    List<PaymentTransaction> findByCustomer_CustomerIdOrderByCreatedAtDesc(Long customerId);
+
+    List<PaymentTransaction> findAllByOrderByCreatedAtDesc();
+
     Optional<PaymentTransaction> findByCustomerAndStatus(Customer customer, PaymentStatus status);
 
     Optional<PaymentTransaction> findByConsultationRequestAndStatus(ConsultationRequest request, PaymentStatus status);
@@ -32,3 +38,4 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     @Query("SELECT p FROM PaymentTransaction p WHERE p.consultationRequest.lawyer.lawyerId = :lawyerId ORDER BY p.createdAt DESC")
     List<PaymentTransaction> findByLawyerId(@Param("lawyerId") Long lawyerId);
 }
+

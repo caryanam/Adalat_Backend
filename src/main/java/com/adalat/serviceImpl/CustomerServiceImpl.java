@@ -2,14 +2,21 @@ package com.adalat.serviceImpl;
 
 import com.adalat.dto.*;
 import com.adalat.entity.Customer;
+import com.adalat.entity.ConsultationRequest;
+import com.adalat.entity.Lawyer;
+import com.adalat.entity.LawyerDocument;
 import com.adalat.entity.PaymentTransaction;
 import com.adalat.enums.AccountStatus;
+import com.adalat.enums.ConsultationRequestStatus;
+import com.adalat.enums.DocumentType;
 import com.adalat.enums.PaymentStatus;
 import com.adalat.enums.Role;
 import com.adalat.exception.DuplicateResourceException;
 import com.adalat.exception.PaymentPendingException;
 import com.adalat.exception.ResourceNotFoundException;
+import com.adalat.repository.ConsultationRequestRepository;
 import com.adalat.repository.CustomerRepository;
+import com.adalat.repository.LawyerDocumentRepository;
 import com.adalat.repository.PaymentTransactionRepository;
 import com.adalat.security.CustomUserDetails;
 import com.adalat.security.JwtService;
@@ -21,8 +28,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -31,9 +41,12 @@ public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final ConsultationRequestRepository consultationRequestRepository;
+    private final LawyerDocumentRepository lawyerDocumentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final com.adalat.service.EmailOtpService emailOtpService;
+
 
     // ─── 1. REGISTER ───────────────────────────────────────────────────────────
 
@@ -331,4 +344,170 @@ public class CustomerServiceImpl implements CustomerService {
         customerRepository.save(customer);
         log.info("Password successfully changed for customer id={}", customerId);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerPaymentTransactionDTO> getCustomerPaymentHistory(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        List<PaymentTransaction> transactions = paymentTransactionRepository.findByCustomerOrderByCreatedAtDesc(customer);
+        List<CustomerPaymentTransactionDTO> dtoList = new ArrayList<>();
+        Set<Long> processedRequestIds = new HashSet<>();
+        boolean hasRegistrationTx = false;
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+
+        for (PaymentTransaction pt : transactions) {
+            Long reqId = null;
+            Long lawyerId = null;
+            String lawyerName = null;
+            String lawyerProfileImageUrl = null;
+            String category = null;
+            String serviceDescription = "Adalat Customer Account Activation & Lifetime Escrow";
+            String serviceSubDescription = "One-time registration and platform escrow enablement";
+
+            if (pt.getConsultationRequest() != null) {
+                reqId = pt.getConsultationRequest().getId();
+                processedRequestIds.add(reqId);
+                Lawyer lawyer = pt.getConsultationRequest().getLawyer();
+                if (lawyer != null) {
+                    lawyerId = lawyer.getLawyerId();
+                    lawyerName = lawyer.getFullName();
+                    lawyerProfileImageUrl = resolveLawyerPhoto(lawyer);
+                }
+                if (pt.getConsultationRequest().getCategory() != null) {
+                    category = pt.getConsultationRequest().getCategory().name();
+                }
+                serviceDescription = "Advocate Legal Consultation - Adv. " + (lawyerName != null ? lawyerName : "Legal Expert");
+                if (category != null) {
+                    serviceDescription += " (" + category.replace("_", " ") + ")";
+                }
+                serviceSubDescription = "Direct real-time consultation & case assessment session";
+            } else if ("REGISTRATION".equalsIgnoreCase(pt.getPaymentType())) {
+                hasRegistrationTx = true;
+            }
+
+            BigDecimal totalAmt = pt.getAmount() != null ? pt.getAmount() : new BigDecimal("116.82");
+            BigDecimal baseAmt = totalAmt.divide(new BigDecimal("1.18"), 2, RoundingMode.HALF_UP);
+            BigDecimal gstAmt = totalAmt.subtract(baseAmt).setScale(2, RoundingMode.HALF_UP);
+
+            String dateStr = pt.getCreatedAt() != null ? pt.getCreatedAt().format(formatter) : "Recent";
+            String rawDateStr = pt.getCreatedAt() != null ? pt.getCreatedAt().toString() : "";
+
+            dtoList.add(CustomerPaymentTransactionDTO.builder()
+                    .id(pt.getGatewayPaymentId() != null && !pt.getGatewayPaymentId().isBlank() ? pt.getGatewayPaymentId() : (pt.getOrderId() != null ? pt.getOrderId() : ("TXN-" + pt.getId())))
+                    .orderId(pt.getOrderId())
+                    .gatewayPaymentId(pt.getGatewayPaymentId())
+                    .consultationRequestId(reqId)
+                    .paymentType(pt.getPaymentType() != null ? pt.getPaymentType() : "CONSULTATION_FEE")
+                    .serviceDescription(serviceDescription)
+                    .serviceSubDescription(serviceSubDescription)
+                    .lawyerId(lawyerId)
+                    .lawyerName(lawyerName)
+                    .lawyerProfileImageUrl(lawyerProfileImageUrl)
+                    .category(category)
+                    .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                    .amountNum(totalAmt)
+                    .baseAmount(baseAmt.toString())
+                    .gstAmount(gstAmt.toString())
+                    .paymentMethod("UPI Direct (Auto-Settled)")
+                    .status(pt.getStatus() != null ? pt.getStatus().name() : "PAID")
+                    .date(dateStr)
+                    .rawDate(rawDateStr)
+                    .build());
+        }
+
+        // Include any ConsultationRequest for this customer with payment status/completed that might not have PaymentTransaction
+        List<ConsultationRequest> consultationRequests = consultationRequestRepository.findByCustomerOrderByCreatedAtDesc(customer);
+        for (ConsultationRequest cr : consultationRequests) {
+
+            if (!processedRequestIds.contains(cr.getId()) &&
+                    (cr.getStatus() == ConsultationRequestStatus.PAYMENT_COMPLETED ||
+                     cr.getStatus() == ConsultationRequestStatus.ACTIVE ||
+                     cr.getStatus() == ConsultationRequestStatus.COMPLETED)) {
+
+                BigDecimal baseAmt = cr.getPaymentAmount() != null ? cr.getPaymentAmount() : (cr.getLawyer() != null && cr.getLawyer().getConsultationFee() != null ? new BigDecimal(cr.getLawyer().getConsultationFee()) : new BigDecimal("99.00"));
+                BigDecimal totalAmt = baseAmt.multiply(new BigDecimal("1.18")).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal gstAmt = totalAmt.subtract(baseAmt).setScale(2, RoundingMode.HALF_UP);
+
+                Lawyer lawyer = cr.getLawyer();
+                String lName = lawyer != null ? lawyer.getFullName() : "Legal Expert";
+                String lPhoto = lawyer != null ? resolveLawyerPhoto(lawyer) : null;
+                String cat = cr.getCategory() != null ? cr.getCategory().name() : "LEGAL_CONSULTATION";
+
+                String serviceDesc = "Advocate Legal Consultation - Adv. " + lName + " (" + cat.replace("_", " ") + ")";
+                String dateStr = cr.getCreatedAt() != null ? cr.getCreatedAt().format(formatter) : "Recent";
+                String rawDateStr = cr.getCreatedAt() != null ? cr.getCreatedAt().toString() : "";
+
+                dtoList.add(CustomerPaymentTransactionDTO.builder()
+                        .id("PAY-CONS-" + cr.getId())
+                        .orderId("ORD_CONS_" + cr.getId())
+                        .gatewayPaymentId("PAY-CONS-" + cr.getId())
+                        .consultationRequestId(cr.getId())
+                        .paymentType("CONSULTATION_FEE")
+                        .serviceDescription(serviceDesc)
+                        .serviceSubDescription("Direct real-time consultation & case assessment session")
+                        .lawyerId(lawyer != null ? lawyer.getLawyerId() : null)
+                        .lawyerName(lName)
+                        .lawyerProfileImageUrl(lPhoto)
+                        .category(cat)
+                        .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                        .amountNum(totalAmt)
+                        .baseAmount(baseAmt.toString())
+                        .gstAmount(gstAmt.toString())
+                        .paymentMethod("UPI Direct (Auto-Settled)")
+                        .status("PAID")
+                        .date(dateStr)
+                        .rawDate(rawDateStr)
+                        .build());
+            }
+        }
+
+        // Include registration payment if customer is marked PAID but no registration row was found
+        if (!hasRegistrationTx && customer.getPaymentStatus() == PaymentStatus.PAID) {
+            BigDecimal totalAmt = new BigDecimal("116.82");
+            BigDecimal baseAmt = new BigDecimal("99.00");
+            BigDecimal gstAmt = new BigDecimal("17.82");
+            String dateStr = customer.getCreatedAt() != null ? customer.getCreatedAt().format(formatter) : "Registration";
+            String rawDateStr = customer.getCreatedAt() != null ? customer.getCreatedAt().toString() : "";
+
+            dtoList.add(CustomerPaymentTransactionDTO.builder()
+                    .id("PAY-REG-" + customer.getCustomerId())
+                    .orderId("TXN-REG-" + customer.getCustomerId())
+                    .gatewayPaymentId("PAY-REG-" + customer.getCustomerId())
+                    .paymentType("REGISTRATION")
+                    .serviceDescription("Adalat Customer Account Activation & Lifetime Escrow")
+                    .serviceSubDescription("One-time registration and platform escrow enablement")
+                    .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                    .amountNum(totalAmt)
+                    .baseAmount(baseAmt.toString())
+                    .gstAmount(gstAmt.toString())
+                    .paymentMethod("UPI Direct (Auto-Settled)")
+                    .status("PAID")
+                    .date(dateStr)
+                    .rawDate(rawDateStr)
+                    .build());
+        }
+
+        return dtoList;
+    }
+
+    private String resolveLawyerPhoto(Lawyer lawyer) {
+        if (lawyer == null) return null;
+        String lawyerPhotoUrl = lawyer.getProfilePhotoUrl();
+        if ((lawyerPhotoUrl == null || lawyerPhotoUrl.isBlank()) && lawyerDocumentRepository != null) {
+            List<LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(lawyer);
+            if (docs != null && !docs.isEmpty()) {
+                lawyerPhotoUrl = docs.stream()
+                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO ||
+                                     (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                        .map(LawyerDocument::getFileUrl)
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+        return lawyerPhotoUrl;
+    }
 }
+

@@ -243,12 +243,6 @@ public class LawyerServiceImpl implements LawyerService {
             throw new BadCredentialsException("Invalid password.");
         }
 
-        // Verification gate: only block if explicitly REJECTED by admin
-        if (lawyer.getVerificationStatus() == VerificationStatus.REJECTED) {
-            String reason = lawyer.getRejectionReason() != null ? ": " + lawyer.getRejectionReason() : ".";
-            throw new LawyerNotApprovedException("Your advocate verification was not approved" + reason);
-        }
-
         // Email Verification gate
         if (!Boolean.TRUE.equals(lawyer.getEmailVerified())) {
             throw new IllegalArgumentException("Please verify your email address before logging in.");
@@ -319,9 +313,19 @@ public class LawyerServiceImpl implements LawyerService {
     @Override
     public List<LawyerProfileResponseDTO> getPendingLawyers() {
         return lawyerRepository
-                .findByRegistrationStatusAndVerificationStatus(
-                        RegistrationStatus.SUBMITTED, VerificationStatus.PENDING)
+                .findByVerificationStatus(VerificationStatus.PENDING)
                 .stream()
+                .filter(l -> l.getRole() == Role.LAWYER)
+                .map(this::toProfileDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<LawyerProfileResponseDTO> getAllLawyersForAdmin() {
+        return lawyerRepository.findAll(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "lawyerId"))
+                .stream()
+                .filter(l -> l.getRole() == Role.LAWYER)
                 .map(this::toProfileDTO)
                 .collect(Collectors.toList());
     }
@@ -333,8 +337,8 @@ public class LawyerServiceImpl implements LawyerService {
 
     @Override
     public List<LawyerProfileResponseDTO> getPublicDirectoryLawyers() {
-        return lawyerRepository.findAll().stream()
-                .filter(l -> l.getRole() == Role.LAWYER)
+        return lawyerRepository.findByVerificationStatus(VerificationStatus.APPROVED).stream()
+                .filter(l -> l.getRole() == Role.LAWYER && l.getAccountStatus() == AccountStatus.ACTIVE)
                 .map(this::toProfileDTO)
                 .collect(Collectors.toList());
     }
@@ -697,6 +701,7 @@ public class LawyerServiceImpl implements LawyerService {
                 .accountStatus(lawyer.getAccountStatus())
                 .available(lawyer.getAvailable() != null ? lawyer.getAvailable() : true)
                 .rating(lawyer.getRating() != null ? lawyer.getRating() : 0.0)
+                .ratingCount(lawyer.getRatingCount() != null ? lawyer.getRatingCount() : 0)
                 .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
                 .profilePhotoUrl(lawyer.getProfilePhotoUrl())
                 .rejectionReason(lawyer.getRejectionReason())

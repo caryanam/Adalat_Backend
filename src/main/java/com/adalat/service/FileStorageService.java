@@ -10,6 +10,8 @@ public interface FileStorageService {
 
     String storeCustomerLegalDocument(Long customerId, Long sessionId, MultipartFile file) throws IOException;
 
+    String storeConsultationAttachment(Long consultationId, MultipartFile file) throws IOException;
+
     String getStoredFileName(String fileUrl);
 
     void deleteFile(Long lawyerId, String storedFileName);

@@ -23,6 +23,8 @@ public class ConsultationRequestResponseDTO {
     private String lawyerLocation;
     private String lawyerUpiId;
     private Integer lawyerRate;
+    private String lawyerProfileImageUrl;
+    private Long remainingSeconds;
     private LegalCategory category;
     private String categoryDisplayName;
     private PracticeArea practiceArea;
@@ -38,6 +40,11 @@ public class ConsultationRequestResponseDTO {
     private com.adalat.enums.PaymentStatus paymentStatus;
     private LocalDateTime chatStartedAt;
     private Boolean isFreeChatTimeOver;
+    private Integer rating;
+    private String ratingComment;
+    private LocalDateTime ratedAt;
+    private Double lawyerRating;
+    private Integer lawyerRatingCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

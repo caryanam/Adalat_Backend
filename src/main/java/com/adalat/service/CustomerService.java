@@ -15,4 +15,7 @@ public interface CustomerService {
     CustomerInfoDTO updateProfile(Long customerId, CustomerUpdateProfileRequestDTO request);
 
     void changePassword(Long customerId, ChangePasswordRequestDTO request);
+
+    java.util.List<CustomerPaymentTransactionDTO> getCustomerPaymentHistory(Long customerId);
 }
+

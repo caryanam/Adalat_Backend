@@ -20,9 +20,9 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Value("${app.file.lawyer-upload-dir}")
     private String lawyerUploadDir;
 
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    private static final long MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
     private static final java.util.Set<String> ALLOWED_EXTENSIONS =
-            java.util.Set.of("pdf", "jpg", "jpeg", "png", "doc", "docx");
+            java.util.Set.of("pdf", "jpg", "jpeg", "png", "webp", "gif", "doc", "docx", "txt", "rtf", "csv", "xls", "xlsx", "zip");
 
     @Override
     public String storeFile(Long lawyerId, MultipartFile file) throws IOException {
@@ -63,6 +63,25 @@ public class FileStorageServiceImpl implements FileStorageService {
         log.info("Customer legal document stored: {}", targetPath.toAbsolutePath());
 
         return baseUrl + "/uploads/customers/" + customerId + "/legal-assistance/" + sessionId + "/" + storedFileName;
+    }
+
+    @Override
+    public String storeConsultationAttachment(Long consultationId, MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String extension = getExtension(file.getOriginalFilename()).toLowerCase();
+
+        // Build consultation chat directory: uploads/consultations/{consultationId}/
+        Path chatDir = Paths.get("uploads", "consultations", String.valueOf(consultationId));
+        Files.createDirectories(chatDir);
+
+        String storedFileName = UUID.randomUUID().toString().replace("-", "") + (extension.isEmpty() ? "" : "." + extension);
+        Path targetPath = chatDir.resolve(storedFileName);
+
+        Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+        log.info("Consultation attachment stored: {}", targetPath.toAbsolutePath());
+
+        return baseUrl + "/uploads/consultations/" + consultationId + "/" + storedFileName;
     }
 
     private void validateFile(MultipartFile file) {

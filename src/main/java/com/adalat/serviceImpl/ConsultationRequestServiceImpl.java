@@ -8,12 +8,15 @@ import com.adalat.dto.LawyerConsultationActionRequestDTO;
 import com.adalat.entity.ConsultationRequest;
 import com.adalat.entity.Customer;
 import com.adalat.entity.Lawyer;
+import com.adalat.entity.LawyerDocument;
 import com.adalat.entity.PaymentTransaction;
 import com.adalat.enums.ConsultationRequestStatus;
+import com.adalat.enums.DocumentType;
 import com.adalat.enums.PaymentStatus;
 import com.adalat.exception.ResourceNotFoundException;
 import com.adalat.repository.ConsultationRequestRepository;
 import com.adalat.repository.CustomerRepository;
+import com.adalat.repository.LawyerDocumentRepository;
 import com.adalat.repository.LawyerRepository;
 import com.adalat.repository.PaymentTransactionRepository;
 import com.adalat.service.ConsultationRequestService;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -36,6 +40,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
     private final ConsultationRequestRepository consultationRequestRepository;
     private final CustomerRepository customerRepository;
     private final LawyerRepository lawyerRepository;
+    private final LawyerDocumentRepository lawyerDocumentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
@@ -46,8 +51,11 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                         .orElseThrow(() -> new ResourceNotFoundException("No customer found in system with ID: " + customerId)));
 
         Lawyer lawyer = lawyerRepository.findById(requestDTO.getLawyerId())
-                .orElseGet(() -> lawyerRepository.findAll().stream().findFirst()
-                        .orElseThrow(() -> new ResourceNotFoundException("No advocate available in system with ID: " + requestDTO.getLawyerId())));
+                .orElseThrow(() -> new ResourceNotFoundException("No advocate found in system with ID: " + requestDTO.getLawyerId()));
+
+        if (lawyer.getVerificationStatus() != com.adalat.enums.VerificationStatus.APPROVED) {
+            throw new com.adalat.exception.LawyerNotApprovedException("This advocate application is pending verification or not yet approved by Admin.");
+        }
 
         BigDecimal fee = lawyer.getConsultationFee() != null
                 ? new BigDecimal(lawyer.getConsultationFee())
@@ -405,8 +413,25 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         }
 
         Boolean isFreeChatTimeOver = false;
+        long remainingSeconds = 120;
         if (req.getChatStartedAt() != null) {
-            isFreeChatTimeOver = LocalDateTime.now().isAfter(req.getChatStartedAt().plusMinutes(2));
+            long elapsedSeconds = Duration.between(req.getChatStartedAt(), LocalDateTime.now()).getSeconds();
+            remainingSeconds = Math.max(0, 120 - elapsedSeconds);
+            isFreeChatTimeOver = elapsedSeconds >= 120;
+        }
+
+        // Retrieve Lawyer profile photo URL
+        String lawyerPhotoUrl = req.getLawyer().getProfilePhotoUrl();
+        if ((lawyerPhotoUrl == null || lawyerPhotoUrl.isBlank()) && lawyerDocumentRepository != null) {
+            List<LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(req.getLawyer());
+            if (docs != null && !docs.isEmpty()) {
+                lawyerPhotoUrl = docs.stream()
+                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO ||
+                                     (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                        .map(LawyerDocument::getFileUrl)
+                        .findFirst()
+                        .orElse(null);
+            }
         }
 
         return ConsultationRequestResponseDTO.builder()
@@ -418,6 +443,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .lawyerId(req.getLawyer().getLawyerId())
                 .lawyerName(req.getLawyer().getFullName())
                 .lawyerLocation(req.getLawyer().getLocation())
+                .lawyerProfileImageUrl(lawyerPhotoUrl)
                 .lawyerUpiId(req.getLawyer().getUpiId() != null && !req.getLawyer().getUpiId().isBlank() ? req.getLawyer().getUpiId() : "advocate@upi")
                 .lawyerRate(req.getLawyer().getConsultationFee() != null ? req.getLawyer().getConsultationFee() : (req.getLawyer().getConsultationRate() != null ? req.getLawyer().getConsultationRate().getAmount() : 99))
                 .category(req.getCategory())
@@ -431,10 +457,16 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .paymentStatus(paymentStatus)
                 .chatStartedAt(req.getChatStartedAt())
                 .isFreeChatTimeOver(isFreeChatTimeOver)
+                .remainingSeconds(remainingSeconds)
                 .assignedDate(req.getAssignedDate())
                 .assignedTime(req.getAssignedTime())
                 .customerConfirmationStatus(req.getCustomerConfirmationStatus())
                 .nextStepInstruction(instruction)
+                .rating(req.getRating())
+                .ratingComment(req.getRatingComment())
+                .ratedAt(req.getRatedAt())
+                .lawyerRating(req.getLawyer().getRating() != null ? req.getLawyer().getRating() : 0.0)
+                .lawyerRatingCount(req.getLawyer().getRatingCount() != null ? req.getLawyer().getRatingCount() : 0)
                 .createdAt(req.getCreatedAt())
                 .updatedAt(req.getUpdatedAt())
                 .build();
