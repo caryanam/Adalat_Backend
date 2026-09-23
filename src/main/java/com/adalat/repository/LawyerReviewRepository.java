@@ -11,4 +11,8 @@ import java.util.Optional;
 public interface LawyerReviewRepository extends JpaRepository<LawyerReview, Long> {
     List<LawyerReview> findByLawyer_LawyerIdOrderByCreatedAtDesc(Long lawyerId);
     Optional<LawyerReview> findByConsultationRequestId(Long consultationRequestId);
+
+    void deleteByCustomer(com.adalat.entity.Customer customer);
+    void deleteByLawyer(com.adalat.entity.Lawyer lawyer);
+    void deleteByConsultationRequestId(Long consultationRequestId);
 }

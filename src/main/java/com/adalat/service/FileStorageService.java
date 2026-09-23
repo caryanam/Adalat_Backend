@@ -15,4 +15,10 @@ public interface FileStorageService {
     String getStoredFileName(String fileUrl);
 
     void deleteFile(Long lawyerId, String storedFileName);
+
+    void deleteCustomerDirectory(Long customerId);
+
+    void deleteLawyerDirectory(Long lawyerId);
+
+    void deleteConsultationDirectory(Long consultationId);
 }

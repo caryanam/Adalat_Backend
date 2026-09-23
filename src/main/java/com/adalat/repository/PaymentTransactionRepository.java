@@ -37,5 +37,9 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     @Query("SELECT p FROM PaymentTransaction p WHERE p.consultationRequest.lawyer.lawyerId = :lawyerId ORDER BY p.createdAt DESC")
     List<PaymentTransaction> findByLawyerId(@Param("lawyerId") Long lawyerId);
+
+    void deleteByCustomer(Customer customer);
+
+    void deleteByConsultationRequest(ConsultationRequest request);
 }
 

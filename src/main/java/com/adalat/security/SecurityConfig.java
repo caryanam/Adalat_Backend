@@ -81,6 +81,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/payments/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")
                         .requestMatchers("/api/chat/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")
                         .requestMatchers("/api/notifications/**").hasAnyRole("CUSTOMER", "LAWYER", "ADMIN")
+                        .requestMatchers("/api/account/**").authenticated()
                         .requestMatchers("/api/users/me").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

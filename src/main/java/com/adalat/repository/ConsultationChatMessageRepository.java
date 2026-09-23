@@ -22,4 +22,10 @@ public interface ConsultationChatMessageRepository extends JpaRepository<Consult
 
     long countByConsultationRequestAndSenderTypeNotAndStatusNot(
             ConsultationRequest request, SenderType senderType, ChatMessageStatus status);
+
+    void deleteByConsultationRequest(ConsultationRequest request);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM ConsultationChatMessage m WHERE m.consultationRequest.id = :requestId")
+    void deleteByConsultationRequestId(@org.springframework.data.repository.query.Param("requestId") Long requestId);
 }

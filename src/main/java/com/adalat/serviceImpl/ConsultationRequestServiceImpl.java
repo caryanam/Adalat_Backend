@@ -197,18 +197,19 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
 
         request.setStatus(ConsultationRequestStatus.REJECTED);
-        if (actionDTO != null && actionDTO.getNotes() != null) {
-            request.setLawyerNotes(actionDTO.getNotes());
+        String rejectionReason = (actionDTO != null) ? actionDTO.getEffectiveNotes() : null;
+        if (rejectionReason != null && !rejectionReason.isBlank()) {
+            request.setLawyerNotes(rejectionReason);
         }
 
         ConsultationRequest saved = consultationRequestRepository.save(request);
-        log.info("Consultation request rejected: requestId={}, lawyerId={}", requestId, lawyerId);
+        log.info("Consultation request rejected: requestId={}, lawyerId={}, reason={}", requestId, lawyerId, rejectionReason);
 
         // Dispatch notifications
         try {
             // Customer Notification: Rejected
-            String noteMsg = (actionDTO != null && actionDTO.getNotes() != null && !actionDTO.getNotes().isBlank())
-                    ? " Note from advocate: " + actionDTO.getNotes()
+            String noteMsg = (rejectionReason != null && !rejectionReason.isBlank())
+                    ? " Reason: \"" + rejectionReason + "\""
                     : "";
 
             notificationService.createNotification(

@@ -13,9 +13,13 @@ import java.util.Optional;
 @Repository
 public interface ConsultationRequestRepository extends JpaRepository<ConsultationRequest, Long> {
 
+    List<ConsultationRequest> findByCustomer(Customer customer);
+
     List<ConsultationRequest> findByCustomerOrderByCreatedAtDesc(Customer customer);
 
     List<ConsultationRequest> findByCustomerAndStatusInOrderByCreatedAtDesc(Customer customer, List<ConsultationRequestStatus> statuses);
+
+    List<ConsultationRequest> findByLawyer(Lawyer lawyer);
 
     List<ConsultationRequest> findByLawyerOrderByCreatedAtDesc(Lawyer lawyer);
 

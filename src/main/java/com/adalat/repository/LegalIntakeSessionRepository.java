@@ -15,5 +15,7 @@ public interface LegalIntakeSessionRepository extends JpaRepository<LegalIntakeS
     Optional<LegalIntakeSession> findFirstByCustomerCustomerIdAndStatusInOrderByIdDesc(Long customerId, List<IntakeStatus> statuses);
     
     // Find all sessions for a customer
+    List<LegalIntakeSession> findByCustomer(com.adalat.entity.Customer customer);
+
     List<LegalIntakeSession> findByCustomerCustomerIdOrderByIdDesc(Long customerId);
 }

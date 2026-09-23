@@ -15,4 +15,6 @@ public interface LawyerDocumentRepository extends JpaRepository<LawyerDocument, 
     List<LawyerDocument> findByLawyer(Lawyer lawyer);
 
     Optional<LawyerDocument> findByLawyerAndDocumentType(Lawyer lawyer, DocumentType documentType);
+
+    void deleteByLawyer(Lawyer lawyer);
 }

@@ -30,4 +30,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.recipientRole = :role AND (n.recipientId = :recipientId OR n.recipientId IS NULL) AND n.isRead = false")
     int markAllAsReadForUser(@Param("role") Role role, @Param("recipientId") Long recipientId, @Param("now") LocalDateTime now);
+
+    void deleteByRecipientRoleAndRecipientId(Role recipientRole, Long recipientId);
 }

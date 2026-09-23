@@ -121,6 +121,48 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
     }
 
+    @Override
+    public void deleteCustomerDirectory(Long customerId) {
+        if (customerId == null) return;
+        try {
+            Path customerDir = Paths.get("uploads", "customers", String.valueOf(customerId));
+            if (Files.exists(customerDir)) {
+                org.springframework.util.FileSystemUtils.deleteRecursively(customerDir);
+                log.info("Recursively deleted customer directory: {}", customerDir.toAbsolutePath());
+            }
+        } catch (Exception e) {
+            log.warn("Could not delete customer directory for customerId={}: {}", customerId, e.getMessage());
+        }
+    }
+
+    @Override
+    public void deleteLawyerDirectory(Long lawyerId) {
+        if (lawyerId == null) return;
+        try {
+            Path lawyerDir = Paths.get(lawyerUploadDir, String.valueOf(lawyerId));
+            if (Files.exists(lawyerDir)) {
+                org.springframework.util.FileSystemUtils.deleteRecursively(lawyerDir);
+                log.info("Recursively deleted lawyer directory: {}", lawyerDir.toAbsolutePath());
+            }
+        } catch (Exception e) {
+            log.warn("Could not delete lawyer directory for lawyerId={}: {}", lawyerId, e.getMessage());
+        }
+    }
+
+    @Override
+    public void deleteConsultationDirectory(Long consultationId) {
+        if (consultationId == null) return;
+        try {
+            Path consultationDir = Paths.get("uploads", "consultations", String.valueOf(consultationId));
+            if (Files.exists(consultationDir)) {
+                org.springframework.util.FileSystemUtils.deleteRecursively(consultationDir);
+                log.info("Recursively deleted consultation directory: {}", consultationDir.toAbsolutePath());
+            }
+        } catch (Exception e) {
+            log.warn("Could not delete consultation directory for consultationId={}: {}", consultationId, e.getMessage());
+        }
+    }
+
     private String getExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == fileName.length() - 1) {

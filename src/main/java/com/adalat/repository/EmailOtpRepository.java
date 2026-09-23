@@ -10,4 +10,8 @@ import java.util.Optional;
 @Repository
 public interface EmailOtpRepository extends JpaRepository<EmailOtp, Long> {
     Optional<EmailOtp> findTopByEmailAndRoleOrderByCreatedAtDesc(String email, Role role);
+
+    void deleteByEmailAndRole(String email, Role role);
+
+    void deleteByEmail(String email);
 }
