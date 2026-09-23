@@ -31,6 +31,7 @@ public class LawyerRatingServiceImpl implements LawyerRatingService {
     private final LawyerReviewRepository lawyerReviewRepository;
     private final CustomerRepository customerRepository;
     private final ConsultationRequestRepository consultationRequestRepository;
+    private final com.adalat.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -63,6 +64,22 @@ public class LawyerRatingServiceImpl implements LawyerRatingService {
 
         // Recalculate average rating & rating count for lawyer
         updateLawyerAggregateRating(lawyer);
+
+        // Dispatch notification
+        try {
+            notificationService.createNotification(
+                    com.adalat.enums.Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "New Client Review Received",
+                    "Client " + customerName + " rated you " + review.getRating() + "★" + (review.getComment() != null && !review.getComment().isBlank() ? ": \"" + review.getComment() + "\"" : "."),
+                    com.adalat.enums.NotificationType.NEW_REVIEW_RECEIVED,
+                    review.getId(),
+                    "REVIEW",
+                    "/lawyer/dashboard"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch submitRating notification: {}", notifEx.getMessage());
+        }
 
         return mapToDTO(review);
     }
@@ -120,6 +137,22 @@ public class LawyerRatingServiceImpl implements LawyerRatingService {
 
         // Recalculate average rating & rating count in lawyerReg
         updateLawyerAggregateRating(lawyer);
+
+        // Dispatch notification to lawyer
+        try {
+            notificationService.createNotification(
+                    com.adalat.enums.Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "New Consultation Review",
+                    "Client " + customerName + " rated your consultation " + review.getRating() + "★" + (review.getComment() != null && !review.getComment().isBlank() ? ": \"" + review.getComment() + "\"" : "."),
+                    com.adalat.enums.NotificationType.NEW_REVIEW_RECEIVED,
+                    review.getId(),
+                    "REVIEW",
+                    "/lawyer/dashboard"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch submitConsultationRating notification: {}", notifEx.getMessage());
+        }
 
         return mapToDTO(review);
     }

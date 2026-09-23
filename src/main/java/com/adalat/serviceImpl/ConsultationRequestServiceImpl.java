@@ -13,6 +13,7 @@ import com.adalat.entity.PaymentTransaction;
 import com.adalat.enums.ConsultationRequestStatus;
 import com.adalat.enums.DocumentType;
 import com.adalat.enums.PaymentStatus;
+import com.adalat.enums.Role;
 import com.adalat.exception.ResourceNotFoundException;
 import com.adalat.repository.ConsultationRequestRepository;
 import com.adalat.repository.CustomerRepository;
@@ -42,6 +43,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
     private final LawyerRepository lawyerRepository;
     private final LawyerDocumentRepository lawyerDocumentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final com.adalat.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -81,6 +83,36 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         ConsultationRequest saved = consultationRequestRepository.save(request);
         log.info("Consultation request created: requestId={}, customerId={}, lawyerId={}",
                 saved.getId(), customer.getCustomerId(), lawyer.getLawyerId());
+
+        // Dispatch notifications
+        try {
+            // 1. Lawyer Notification: New Consultation Request
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "New Consultation Request",
+                    "Client " + customer.getFullName() + " requested a consultation for " + (saved.getCategory() != null ? saved.getCategory().getDisplayName() : "Legal Matter") + ".",
+                    com.adalat.enums.NotificationType.NEW_CONSULTATION_REQUEST,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/lawyer/requests"
+            );
+
+            // 2. Customer Notification: Request Submitted
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    customer.getCustomerId(),
+                    "Consultation Request Sent",
+                    "Your consultation request has been sent to Adv. " + lawyer.getFullName() + ". Awaiting advocate confirmation.",
+                    com.adalat.enums.NotificationType.SYSTEM_ALERT,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/consultations"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch createRequest notifications: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -133,6 +165,28 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
 
         ConsultationRequest saved = consultationRequestRepository.save(request);
         log.info("Consultation request accepted: requestId={}, lawyerId={}", requestId, actingLawyer.getLawyerId());
+
+        // Dispatch notifications
+        try {
+            // Customer Notification: Accepted
+            String timeMsg = (actionDTO != null && actionDTO.getAssignedDate() != null)
+                    ? " Scheduled for " + actionDTO.getAssignedDate() + " at " + actionDTO.getAssignedTime() + "."
+                    : " Consultation is scheduled.";
+
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    request.getCustomer().getCustomerId(),
+                    "Consultation Request Accepted!",
+                    "Adv. " + actingLawyer.getFullName() + " accepted your consultation request." + timeMsg + " Please complete payment to start.",
+                    com.adalat.enums.NotificationType.CONSULTATION_ACCEPTED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/consultations"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch acceptRequest notification: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -149,6 +203,28 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
 
         ConsultationRequest saved = consultationRequestRepository.save(request);
         log.info("Consultation request rejected: requestId={}, lawyerId={}", requestId, lawyerId);
+
+        // Dispatch notifications
+        try {
+            // Customer Notification: Rejected
+            String noteMsg = (actionDTO != null && actionDTO.getNotes() != null && !actionDTO.getNotes().isBlank())
+                    ? " Note from advocate: " + actionDTO.getNotes()
+                    : "";
+
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    request.getCustomer().getCustomerId(),
+                    "Consultation Request Declined",
+                    "Adv. " + request.getLawyer().getFullName() + " was unable to accept your request." + noteMsg,
+                    com.adalat.enums.NotificationType.CONSULTATION_REJECTED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/consultations"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch rejectRequest notification: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -344,6 +420,49 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         log.info("Consultation payment verified: orderId={}, requestId={}, status=ACTIVE",
                 verifyDTO.getOrderId(), requestId);
 
+        // Dispatch notifications
+        try {
+            BigDecimal feeAmt = saved.getPaymentAmount() != null ? saved.getPaymentAmount() : new BigDecimal("99.00");
+
+            // 1. Customer Notification: Payment Confirmed
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    saved.getCustomer().getCustomerId(),
+                    "Payment Confirmed • Consultation Active",
+                    "Payment of ₹" + feeAmt + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is now active.",
+                    com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/chat/" + saved.getId()
+            );
+
+            // 2. Lawyer Notification: Payment Received
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    saved.getLawyer().getLawyerId(),
+                    "Consultation Fee Received",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ₹" + feeAmt + ". The consultation session is active.",
+                    com.adalat.enums.NotificationType.CONSULTATION_PAID,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/lawyer/chat/" + saved.getId()
+            );
+
+            // 3. Admin Notification: Consultation Payment
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "Consultation Fee Paid",
+                    "Consultation fee ₹" + feeAmt + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
+                    saved.getId(),
+                    "PAYMENT",
+                    "/admin/payments"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch verifyConsultationPayment notifications: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -356,6 +475,34 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         request.setStatus(ConsultationRequestStatus.COMPLETED);
         ConsultationRequest saved = consultationRequestRepository.save(request);
         log.info("Consultation completed by customer: requestId={}", requestId);
+
+        // Dispatch notifications
+        try {
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    saved.getCustomer().getCustomerId(),
+                    "Consultation Concluded",
+                    "Your consultation with Adv. " + saved.getLawyer().getFullName() + " has completed. Please leave a rating and review.",
+                    com.adalat.enums.NotificationType.CONSULTATION_COMPLETED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/consultations"
+            );
+
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    saved.getLawyer().getLawyerId(),
+                    "Consultation Concluded",
+                    "Consultation with client " + saved.getCustomer().getFullName() + " has concluded.",
+                    com.adalat.enums.NotificationType.CONSULTATION_COMPLETED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/lawyer/requests"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch completeConsultation notifications: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -368,6 +515,34 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         request.setStatus(ConsultationRequestStatus.COMPLETED);
         ConsultationRequest saved = consultationRequestRepository.save(request);
         log.info("Consultation completed by lawyer: requestId={}", requestId);
+
+        // Dispatch notifications
+        try {
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    saved.getCustomer().getCustomerId(),
+                    "Consultation Concluded",
+                    "Adv. " + saved.getLawyer().getFullName() + " marked your consultation as completed. Please share your rating & review.",
+                    com.adalat.enums.NotificationType.CONSULTATION_COMPLETED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/consultations"
+            );
+
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    saved.getLawyer().getLawyerId(),
+                    "Consultation Concluded",
+                    "Consultation with client " + saved.getCustomer().getFullName() + " has concluded.",
+                    com.adalat.enums.NotificationType.CONSULTATION_COMPLETED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/lawyer/requests"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch completeConsultationByLawyer notifications: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 
@@ -534,6 +709,48 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         paymentTransactionRepository.save(transaction);
 
         log.info("Paid consultation unlocked for requestId={}, paymentId={}, amount={}", requestId, paymentId, fee);
+
+        // Dispatch notifications
+        try {
+            // 1. Customer Notification
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    saved.getCustomer().getCustomerId(),
+                    "Payment Confirmed • Consultation Active",
+                    "Payment of ₹" + fee + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is active.",
+                    com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/customer/chat/" + saved.getId()
+            );
+
+            // 2. Lawyer Notification
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    saved.getLawyer().getLawyerId(),
+                    "Consultation Fee Received",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ₹" + fee + ". The consultation session is active.",
+                    com.adalat.enums.NotificationType.CONSULTATION_PAID,
+                    saved.getId(),
+                    "CONSULTATION",
+                    "/lawyer/chat/" + saved.getId()
+            );
+
+            // 3. Admin Notification
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "Consultation Fee Paid",
+                    "Consultation fee ₹" + fee + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
+                    saved.getId(),
+                    "PAYMENT",
+                    "/admin/payments"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch unlockPaidConsultation notifications: {}", notifEx.getMessage());
+        }
+
         return toDTO(saved);
     }
 }

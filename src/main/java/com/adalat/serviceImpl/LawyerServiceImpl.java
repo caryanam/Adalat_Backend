@@ -61,6 +61,7 @@ public class LawyerServiceImpl implements LawyerService {
     private final EmailOtpService emailOtpService;
     private final EmailService emailService;
     private final FileStorageService fileStorageService;
+    private final com.adalat.service.NotificationService notificationService;
 
     private static final int OTP_LENGTH = 6;
     private static final int OTP_VALIDITY_MINUTES = 5;
@@ -197,6 +198,36 @@ public class LawyerServiceImpl implements LawyerService {
         lawyerRepository.save(lawyer);
 
         log.info("Lawyer application submitted: id={}", lawyerId);
+
+        // Dispatch notifications
+        try {
+            // 1. Admin Notification: New lawyer application
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "New Advocate Verification Pending",
+                    "Adv. " + lawyer.getFullName() + " (Bar: " + lawyer.getBarEnrollmentNumber() + ") submitted verification documents.",
+                    com.adalat.enums.NotificationType.NEW_LAWYER_REGISTERED,
+                    lawyer.getLawyerId(),
+                    "LAWYER_PROFILE",
+                    "/admin/verifications"
+            );
+
+            // 2. Lawyer Notification: Application confirmation
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "Application Submitted for Verification",
+                    "Your Bar Council credentials and documents have been submitted. Our compliance team will verify your account shortly.",
+                    com.adalat.enums.NotificationType.APPLICATION_SUBMITTED,
+                    lawyer.getLawyerId(),
+                    "LAWYER_PROFILE",
+                    "/lawyer/dashboard"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch submitApplication notifications: {}", notifEx.getMessage());
+        }
+
         return LawyerSubmitResponseDTO.builder()
                 .lawyerId(lawyerId)
                 .message("Application submitted successfully. Waiting for admin verification.")
@@ -286,6 +317,36 @@ public class LawyerServiceImpl implements LawyerService {
 
         Lawyer saved = lawyerRepository.save(lawyer);
         log.info("Lawyer & documents approved by admin: id={}", lawyerId);
+
+        // Dispatch notifications
+        try {
+            // 1. Lawyer Notification: Approved
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "Account Verified & Approved!",
+                    "Congratulations Adv. " + lawyer.getFullName() + "! Your Bar Council credentials have been verified. Your profile is now ACTIVE to accept client consultations.",
+                    com.adalat.enums.NotificationType.LAWYER_APPROVED,
+                    lawyer.getLawyerId(),
+                    "LAWYER_PROFILE",
+                    "/lawyer/dashboard"
+            );
+
+            // 2. Admin Notification: Confirmation
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "Advocate Approved",
+                    "Adv. " + lawyer.getFullName() + " was successfully approved and is now active on Adalat.",
+                    com.adalat.enums.NotificationType.SYSTEM_ALERT,
+                    lawyer.getLawyerId(),
+                    "LAWYER_PROFILE",
+                    "/admin/lawyers"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch approveLawyer notifications: {}", notifEx.getMessage());
+        }
+
         return toProfileDTO(saved);
     }
 
@@ -307,6 +368,24 @@ public class LawyerServiceImpl implements LawyerService {
 
         Lawyer saved = lawyerRepository.save(lawyer);
         log.info("Lawyer & documents rejected by admin: id={}, reason={}", lawyerId, request.getRejectionReason());
+
+        // Dispatch notifications
+        try {
+            // Lawyer Notification: Rejected with reason
+            notificationService.createNotification(
+                    Role.LAWYER,
+                    lawyer.getLawyerId(),
+                    "Verification Action Required",
+                    "Your application was not approved. Reason: " + request.getRejectionReason() + ". Please update your profile or documents.",
+                    com.adalat.enums.NotificationType.LAWYER_REJECTED,
+                    lawyer.getLawyerId(),
+                    "LAWYER_PROFILE",
+                    "/lawyer/profile"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch rejectLawyer notifications: {}", notifEx.getMessage());
+        }
+
         return toProfileDTO(saved);
     }
 

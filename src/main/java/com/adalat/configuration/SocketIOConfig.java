@@ -110,6 +110,25 @@ public class SocketIOConfig {
         }
     }
 
+    @EventListener
+    public void onNotificationCreated(com.adalat.event.NotificationCreatedEvent event) {
+        if (server != null && event.getNotification() != null) {
+            com.adalat.dto.NotificationDTO notif = event.getNotification();
+            String userRoom = notif.getRecipientId() != null 
+                    ? "user:" + notif.getRecipientRole() + ":" + notif.getRecipientId() 
+                    : null;
+            String roleRoom = "role:" + notif.getRecipientRole();
+
+            if (userRoom != null) {
+                server.getRoomOperations(userRoom).sendEvent("notification_received", notif);
+                log.info("Broadcasted notification_received to {}: id={}, title={}", userRoom, notif.getId(), notif.getTitle());
+            }
+
+            server.getRoomOperations(roleRoom).sendEvent("notification_received", notif);
+            log.info("Broadcasted notification_received to {}: id={}, title={}", roleRoom, notif.getId(), notif.getTitle());
+        }
+    }
+
     private void registerListeners(SocketIOServer server) {
 
         // Connect Listener
@@ -130,6 +149,15 @@ public class SocketIOConfig {
                     String role = claims.get("role", String.class);
                     client.set("userId", userId);
                     client.set("role", role);
+
+                    // Auto-join user-specific and role-specific notification rooms
+                    if (role != null) {
+                        String userRoom = "user:" + role.toUpperCase() + ":" + userId;
+                        String roleRoom = "role:" + role.toUpperCase();
+                        client.joinRoom(userRoom);
+                        client.joinRoom(roleRoom);
+                        log.info("Socket client joined rooms: {} and {}", userRoom, roleRoom);
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to extract claims on connect: {}", e.getMessage());
                 }

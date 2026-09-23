@@ -1,0 +1,28 @@
+package com.adalat.enums;
+
+public enum NotificationType {
+    // Customer Notifications
+    CONSULTATION_ACCEPTED,
+    CONSULTATION_REJECTED,
+    LAWYER_WAITING,
+    PAYMENT_CONFIRMED,
+    CONSULTATION_COMPLETED,
+    WELCOME_CUSTOMER,
+
+    // Lawyer Notifications
+    NEW_CONSULTATION_REQUEST,
+    CONSULTATION_PAID,
+    LAWYER_APPROVED,
+    LAWYER_REJECTED,
+    NEW_REVIEW_RECEIVED,
+    APPLICATION_SUBMITTED,
+
+    // Admin Notifications
+    PLATFORM_FEE_PAID,
+    NEW_CUSTOMER_REGISTERED,
+    NEW_LAWYER_REGISTERED,
+    CONSULTATION_PAYMENT_LOGGED,
+
+    // General / System
+    SYSTEM_ALERT
+}

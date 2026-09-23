@@ -46,6 +46,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final com.adalat.service.EmailOtpService emailOtpService;
+    private final com.adalat.service.NotificationService notificationService;
 
 
     // ─── 1. REGISTER ───────────────────────────────────────────────────────────
@@ -116,6 +117,47 @@ public class CustomerServiceImpl implements CustomerService {
             log.info("PaymentTransaction saved in DB: orderId={}, customerId={}", transaction.getOrderId(), saved.getCustomerId());
         } catch (Exception ex) {
             log.error("Failed to save PaymentTransaction record: {}", ex.getMessage());
+        }
+
+        // Dispatch notifications
+        try {
+            // 1. Admin Notification: New customer registered
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "New Customer Registered",
+                    "New customer registered: " + saved.getFullName() + " (" + saved.getEmail() + ")",
+                    com.adalat.enums.NotificationType.NEW_CUSTOMER_REGISTERED,
+                    saved.getCustomerId(),
+                    "CUSTOMER_PROFILE",
+                    "/admin/customers"
+            );
+
+            // 2. Admin Notification: Platform registration fee received
+            notificationService.createNotification(
+                    Role.ADMIN,
+                    null,
+                    "Platform Registration Fee Paid",
+                    "₹99 Platform registration fee paid by customer: " + saved.getFullName(),
+                    com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
+                    saved.getCustomerId(),
+                    "PAYMENT",
+                    "/admin/payments"
+            );
+
+            // 3. Customer Notification: Welcome
+            notificationService.createNotification(
+                    Role.CUSTOMER,
+                    saved.getCustomerId(),
+                    "Welcome to Adalat!",
+                    "Your account has been activated. You can now consult 500+ verified Bar Council advocates across India.",
+                    com.adalat.enums.NotificationType.WELCOME_CUSTOMER,
+                    saved.getCustomerId(),
+                    "CUSTOMER_PROFILE",
+                    "/customer/find-lawyers"
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch registration notifications: {}", notifEx.getMessage());
         }
 
         return CustomerRegistrationResponseDTO.builder()
