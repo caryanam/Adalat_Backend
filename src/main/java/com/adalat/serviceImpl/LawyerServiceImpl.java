@@ -53,6 +53,7 @@ public class LawyerServiceImpl implements LawyerService {
     private final LawyerRepository lawyerRepository;
     private final LawyerDocumentRepository lawyerDocumentRepository;
     private final CustomerRepository customerRepository;
+    private final com.adalat.repository.AdminRepository adminRepository;
     private final EmailOtpRepository emailOtpRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ConsultationRequestRepository consultationRequestRepository;
@@ -73,17 +74,32 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO registerStep1(LawyerAccountRequestDTO request) {
 
-        if (lawyerRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("A lawyer with this email already exists.");
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        String mobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+
+        // Duplicate email check across all user types (Advocate, Customer, Admin)
+        if (lawyerRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("An advocate with this email already exists.");
         }
-        if (lawyerRepository.existsByMobileNumber(request.getMobileNumber())) {
-            throw new DuplicateResourceException("A lawyer with this mobile number already exists.");
+        if (customerRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered as a Customer account. Please use a different email or log in as a customer.");
+        }
+        if (adminRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered with an administrative account.");
+        }
+
+        // Duplicate mobile check across all user types
+        if (lawyerRepository.existsByMobileNumber(mobile)) {
+            throw new DuplicateResourceException("An advocate with this mobile number already exists.");
+        }
+        if (customerRepository.existsByMobileNumber(mobile)) {
+            throw new DuplicateResourceException("This mobile number is already registered as a Customer account.");
         }
 
         Lawyer lawyer = Lawyer.builder()
                 .fullName(request.getFullName())
-                .email(request.getEmail())
-                .mobileNumber(request.getMobileNumber())
+                .email(cleanEmail)
+                .mobileNumber(mobile)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.LAWYER)
                 .registrationStatus(RegistrationStatus.DRAFT)
@@ -93,7 +109,7 @@ public class LawyerServiceImpl implements LawyerService {
                 .build();
 
         // Enforce Email Verification inline
-        if (!emailOtpService.isEmailVerified(lawyer.getEmail(), Role.LAWYER)) {
+        if (!emailOtpService.isEmailVerified(cleanEmail, Role.LAWYER)) {
             throw new IllegalArgumentException("Please verify your email address before registering.");
         }
 
@@ -434,12 +450,15 @@ public class LawyerServiceImpl implements LawyerService {
         }
         if (request.getMobileNumber() != null && !request.getMobileNumber().isBlank()) {
             String cleanMobile = request.getMobileNumber().trim();
-            // Check if another lawyer already has this mobile
+            // Check if another lawyer or customer already has this mobile
             lawyerRepository.findByMobileNumber(cleanMobile)
                     .filter(l -> !l.getLawyerId().equals(lawyerId))
                     .ifPresent(l -> {
                         throw new DuplicateResourceException("This mobile number is already registered by another account.");
                     });
+            customerRepository.findByMobileNumber(cleanMobile).ifPresent(c -> {
+                throw new DuplicateResourceException("This mobile number is already registered to a customer account.");
+            });
             lawyer.setMobileNumber(cleanMobile);
         }
         if (request.getBarEnrollmentNumber() != null) {
@@ -506,7 +525,7 @@ public class LawyerServiceImpl implements LawyerService {
             throw new IllegalArgumentException("The new email address cannot be the same as your current email.");
         }
 
-        // Check if email is already used by another lawyer or customer
+        // Check if email is already used by another lawyer, customer, or admin
         lawyerRepository.findByEmail(cleanEmail)
                 .filter(l -> !l.getLawyerId().equals(lawyerId))
                 .ifPresent(l -> {
@@ -515,6 +534,10 @@ public class LawyerServiceImpl implements LawyerService {
 
         customerRepository.findByEmail(cleanEmail).ifPresent(c -> {
             throw new DuplicateResourceException("This email address is already registered to a customer account.");
+        });
+
+        adminRepository.findByEmail(cleanEmail).ifPresent(a -> {
+            throw new DuplicateResourceException("This email address is already registered to an administrative account.");
         });
 
         // Generate 6 digit OTP
@@ -543,6 +566,21 @@ public class LawyerServiceImpl implements LawyerService {
     public LawyerProfileResponseDTO verifyAndUpdateEmail(Long lawyerId, String newEmail, String otp) {
         Lawyer lawyer = findLawyerById(lawyerId);
         String cleanEmail = newEmail.trim().toLowerCase();
+
+        // Check if email is already used by another lawyer, customer, or admin
+        lawyerRepository.findByEmail(cleanEmail)
+                .filter(l -> !l.getLawyerId().equals(lawyerId))
+                .ifPresent(l -> {
+                    throw new DuplicateResourceException("This email address is already registered to another advocate.");
+                });
+
+        customerRepository.findByEmail(cleanEmail).ifPresent(c -> {
+            throw new DuplicateResourceException("This email address is already registered to a customer account.");
+        });
+
+        adminRepository.findByEmail(cleanEmail).ifPresent(a -> {
+            throw new DuplicateResourceException("This email address is already registered to an administrative account.");
+        });
 
         Optional<EmailOtp> optionalOtp = emailOtpRepository
                 .findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, Role.LAWYER);
@@ -630,7 +668,7 @@ public class LawyerServiceImpl implements LawyerService {
             throw new IllegalArgumentException("New password and confirm password do not match.");
         }
 
-        if (!emailOtpService.isEmailVerified(cleanEmail, Role.LAWYER)) {
+        if (!emailOtpService.isEmailVerified(cleanEmail, null)) {
             throw new IllegalArgumentException("Please verify the OTP sent to your registered email before resetting password.");
         }
 

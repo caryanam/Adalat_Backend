@@ -7,4 +7,5 @@ public interface AuthService {
     
     AuthResponseDTO authenticate(LoginRequestDTO loginRequest);
 
+    void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword);
 }

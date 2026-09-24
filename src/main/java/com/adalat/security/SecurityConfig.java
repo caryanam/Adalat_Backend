@@ -58,11 +58,13 @@ public class SecurityConfig {
                                 "/api/customer/payment/initiate",
                                 "/api/customer/payment/verify",
                                 "/api/customer/registration",
+                                "/api/customer/forgot-password/reset",
                                 "/api/lawyer/registration",
                                 "/api/lawyer/register",
                                 "/api/lawyers/register/**",
                                 "/api/lawyers/*/documents",
                                 "/api/lawyers/login",
+                                "/api/lawyers/forgot-password/reset",
                                 "/api/lawyers/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,

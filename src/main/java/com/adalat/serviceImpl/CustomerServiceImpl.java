@@ -40,12 +40,15 @@ import java.util.*;
 public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final com.adalat.repository.LawyerRepository lawyerRepository;
+    private final com.adalat.repository.AdminRepository adminRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ConsultationRequestRepository consultationRequestRepository;
     private final LawyerDocumentRepository lawyerDocumentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final com.adalat.service.EmailOtpService emailOtpService;
+    private final com.adalat.service.EmailService emailService;
     private final com.adalat.service.NotificationService notificationService;
 
 
@@ -68,18 +71,30 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("Password and confirm password do not match.");
         }
 
-        // Duplicate email check
-        if (customerRepository.existsByEmail(request.getEmail())) {
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        String mobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+
+        // Duplicate email check across all user types (Customer, Advocate, Admin)
+        if (customerRepository.existsByEmail(cleanEmail)) {
             throw new DuplicateResourceException("A customer with this email already exists.");
         }
+        if (lawyerRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered as an Advocate account. Please use a different email or log in as an advocate.");
+        }
+        if (adminRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered with an administrative account.");
+        }
 
-        // Duplicate mobile check
-        if (customerRepository.existsByMobileNumber(request.getMobileNumber())) {
+        // Duplicate mobile check across all user types
+        if (customerRepository.existsByMobileNumber(mobile)) {
             throw new DuplicateResourceException("A customer with this mobile number already exists.");
+        }
+        if (lawyerRepository.existsByMobileNumber(mobile)) {
+            throw new DuplicateResourceException("This mobile number is already registered as an Advocate account.");
         }
 
         // Enforce Email Verification inline
-        if (!emailOtpService.isEmailVerified(request.getEmail(), Role.CUSTOMER)) {
+        if (!emailOtpService.isEmailVerified(cleanEmail, Role.CUSTOMER)) {
             throw new IllegalArgumentException("Please verify your email address before registering.");
         }
 
@@ -334,10 +349,17 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Check if email is being updated and if it's already taken
         if (!customer.getEmail().equalsIgnoreCase(request.getEmail())) {
-            if (customerRepository.existsByEmail(request.getEmail())) {
+            String cleanNewEmail = request.getEmail().trim().toLowerCase();
+            if (customerRepository.existsByEmail(cleanNewEmail)) {
                 throw new DuplicateResourceException("Email address is already registered.");
             }
-            if (!emailOtpService.isEmailVerified(request.getEmail(), Role.CUSTOMER)) {
+            if (lawyerRepository.existsByEmail(cleanNewEmail)) {
+                throw new DuplicateResourceException("This email address is already registered to an Advocate account.");
+            }
+            if (adminRepository.existsByEmail(cleanNewEmail)) {
+                throw new DuplicateResourceException("This email address is already registered to an administrative account.");
+            }
+            if (!emailOtpService.isEmailVerified(cleanNewEmail, Role.CUSTOMER)) {
                 throw new IllegalArgumentException("Please verify your new email address with the OTP sent to your email before updating your profile.");
             }
             customer.setEmailVerified(true);
@@ -346,8 +368,12 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Check if mobile number is being updated and if it's already taken by someone else
         if (!customer.getMobileNumber().equals(request.getMobileNumber())) {
-            if (customerRepository.existsByMobileNumber(request.getMobileNumber())) {
+            String cleanNewMobile = request.getMobileNumber().trim();
+            if (customerRepository.existsByMobileNumber(cleanNewMobile)) {
                 throw new DuplicateResourceException("Mobile number is already registered.");
+            }
+            if (lawyerRepository.existsByMobileNumber(cleanNewMobile)) {
+                throw new DuplicateResourceException("This mobile number is already registered to an Advocate account.");
             }
         }
 
@@ -385,6 +411,32 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setPassword(passwordEncoder.encode(request.getNewPassword()));
         customerRepository.save(customer);
         log.info("Password successfully changed for customer id={}", customerId);
+    }
+
+    @Override
+    @Transactional
+    public void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword) {
+        String cleanEmail = email.trim().toLowerCase();
+        Customer customer = customerRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("No customer account found with email: " + cleanEmail));
+
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("New password and confirm password do not match.");
+        }
+
+        if (!emailOtpService.isEmailVerified(cleanEmail, null)) {
+            throw new IllegalArgumentException("Please verify the OTP sent to your registered email before resetting password.");
+        }
+
+        if (newPassword.length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters long.");
+        }
+
+        customer.setPassword(passwordEncoder.encode(newPassword));
+        customerRepository.save(customer);
+
+        emailService.sendPasswordChangeAlert(customer.getEmail(), customer.getFullName());
+        log.info("Customer password reset via email OTP successfully: email={}", cleanEmail);
     }
 
     @Override

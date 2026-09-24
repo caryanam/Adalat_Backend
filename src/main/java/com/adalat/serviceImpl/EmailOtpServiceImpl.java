@@ -43,18 +43,15 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     @Override
     @Transactional
     public void generateAndSendOtp(String email, Role role, String name) {
-        // Find existing valid OTPs and invalidate them (or just rely on sorting)
-        // To be safe, we just create a new one and fetch the latest.
-
+        String cleanEmail = email.trim().toLowerCase();
         String otp = generateNumericOtp(OTP_LENGTH);
-        // User requested plain OTP storage instead of hash
         String otpHash = otp; 
 
         LocalDateTime now = LocalDateTime.now();
         
         EmailOtp emailOtp = EmailOtp.builder()
-                .email(email)
-                .role(role)
+                .email(cleanEmail)
+                .role(role != null ? role : Role.LAWYER)
                 .otpHash(otpHash)
                 .expiresAt(now.plusMinutes(OTP_VALIDITY_MINUTES))
                 .resendAvailableAt(now.plusMinutes(RESEND_COOLDOWN_MINUTES))
@@ -65,14 +62,19 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         emailOtpRepository.save(emailOtp);
 
         // Send email
-        emailService.sendVerificationEmail(email, name, otp);
-        log.info("OTP generated and email queued for: {}", email);
+        emailService.sendVerificationEmail(cleanEmail, name != null ? name : "User", otp);
+        log.info("OTP generated and email queued for: {}", cleanEmail);
     }
 
     @Override
     @Transactional
     public OtpResponseDTO verifyOtp(VerifyOtpRequestDTO request) {
-        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(request.getEmail(), request.getRole());
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, request.getRole());
+
+        if (optionalOtp.isEmpty()) {
+            optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
+        }
 
         if (optionalOtp.isEmpty()) {
             return OtpResponseDTO.builder()
@@ -128,22 +130,20 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         emailOtpRepository.save(emailOtp);
 
         // Update user entity if they exist
-        if (request.getRole() == Role.CUSTOMER) {
-            Optional<Customer> optionalCustomer = customerRepository.findByEmail(request.getEmail());
-            if (optionalCustomer.isPresent()) {
-                Customer customer = optionalCustomer.get();
-                customer.setEmailVerified(true);
-                customer.setEmailVerifiedAt(LocalDateTime.now());
-                customerRepository.save(customer);
-            }
-        } else if (request.getRole() == Role.LAWYER) {
-            Optional<Lawyer> optionalLawyer = lawyerRepository.findByEmail(request.getEmail());
-            if (optionalLawyer.isPresent()) {
-                Lawyer lawyer = optionalLawyer.get();
-                lawyer.setEmailVerified(true);
-                lawyer.setEmailVerifiedAt(LocalDateTime.now());
-                lawyerRepository.save(lawyer);
-            }
+        Optional<Customer> optionalCustomer = customerRepository.findByEmail(cleanEmail);
+        if (optionalCustomer.isPresent()) {
+            Customer customer = optionalCustomer.get();
+            customer.setEmailVerified(true);
+            customer.setEmailVerifiedAt(LocalDateTime.now());
+            customerRepository.save(customer);
+        }
+
+        Optional<Lawyer> optionalLawyer = lawyerRepository.findByEmail(cleanEmail);
+        if (optionalLawyer.isPresent()) {
+            Lawyer lawyer = optionalLawyer.get();
+            lawyer.setEmailVerified(true);
+            lawyer.setEmailVerifiedAt(LocalDateTime.now());
+            lawyerRepository.save(lawyer);
         }
 
         return OtpResponseDTO.builder()
@@ -156,17 +156,22 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     @Override
     @Transactional
     public OtpResponseDTO resendOtp(ResendOtpRequestDTO request) {
-        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(request.getEmail(), request.getRole());
-        
-        String name = "User"; // Default name
-        
-        if (request.getRole() == Role.CUSTOMER) {
-            Optional<Customer> c = customerRepository.findByEmail(request.getEmail());
-            if (c.isPresent()) name = c.get().getFullName();
-        } else if (request.getRole() == Role.LAWYER) {
-            Optional<Lawyer> l = lawyerRepository.findByEmail(request.getEmail());
-            if (l.isPresent()) name = l.get().getFullName();
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        Role role = request.getRole();
+        String name = "User";
+
+        Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
+        Optional<Customer> customerOpt = customerRepository.findByEmail(cleanEmail);
+
+        if (lawyerOpt.isPresent()) {
+            role = Role.LAWYER;
+            name = lawyerOpt.get().getFullName();
+        } else if (customerOpt.isPresent()) {
+            role = Role.CUSTOMER;
+            name = customerOpt.get().getFullName();
         }
+
+        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
 
         if (optionalOtp.isPresent()) {
             EmailOtp latestOtp = optionalOtp.get();
@@ -184,7 +189,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         }
 
         // Generate and send new OTP
-        generateAndSendOtp(request.getEmail(), request.getRole(), name);
+        generateAndSendOtp(cleanEmail, role != null ? role : Role.LAWYER, name);
 
         return OtpResponseDTO.builder()
                 .success(true)
@@ -196,7 +201,11 @@ public class EmailOtpServiceImpl implements EmailOtpService {
 
     @Override
     public OtpResponseDTO getOtpStatus(String email, Role role) {
-        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(email, role);
+        String cleanEmail = email.trim().toLowerCase();
+        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, role);
+        if (optionalOtp.isEmpty()) {
+            optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
+        }
         
         if (optionalOtp.isEmpty() || optionalOtp.get().getUsed()) {
             return OtpResponseDTO.builder()
@@ -219,10 +228,46 @@ public class EmailOtpServiceImpl implements EmailOtpService {
 
     @Override
     public boolean isEmailVerified(String email, Role role) {
-        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(email, role);
-        if (optionalOtp.isPresent() && optionalOtp.get().getUsed() && optionalOtp.get().getVerifiedAt() != null) {
+        if (email == null) return false;
+        String cleanEmail = email.trim().toLowerCase();
+
+        // 1. Check if ANY verified OTP exists for this email within the last 30 minutes
+        Optional<EmailOtp> verifiedOtp = emailOtpRepository.findTopByEmailAndUsedTrueOrderByVerifiedAtDesc(cleanEmail);
+        if (verifiedOtp.isPresent() && verifiedOtp.get().getVerifiedAt() != null) {
+            if (verifiedOtp.get().getVerifiedAt().isAfter(LocalDateTime.now().minusMinutes(30))) {
+                return true;
+            }
+        }
+
+        // 2. Check by role if specified
+        if (role != null) {
+            Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, role);
+            if (optionalOtp.isPresent() && Boolean.TRUE.equals(optionalOtp.get().getUsed()) && optionalOtp.get().getVerifiedAt() != null) {
+                if (optionalOtp.get().getVerifiedAt().isAfter(LocalDateTime.now().minusMinutes(30))) {
+                    return true;
+                }
+            }
+        }
+
+        // 3. Fallback: Check latest OTP overall
+        Optional<EmailOtp> anyOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
+        if (anyOtp.isPresent() && Boolean.TRUE.equals(anyOtp.get().getUsed()) && anyOtp.get().getVerifiedAt() != null) {
+            if (anyOtp.get().getVerifiedAt().isAfter(LocalDateTime.now().minusMinutes(30))) {
+                return true;
+            }
+        }
+
+        // 4. Fallback: Check if user entity itself is marked emailVerified
+        Optional<Customer> customer = customerRepository.findByEmail(cleanEmail);
+        if (customer.isPresent() && Boolean.TRUE.equals(customer.get().getEmailVerified())) {
             return true;
         }
+
+        Optional<Lawyer> lawyer = lawyerRepository.findByEmail(cleanEmail);
+        if (lawyer.isPresent() && Boolean.TRUE.equals(lawyer.get().getEmailVerified())) {
+            return true;
+        }
+
         return false;
     }
 

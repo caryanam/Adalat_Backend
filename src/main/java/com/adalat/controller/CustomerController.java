@@ -86,5 +86,14 @@ public class CustomerController {
         java.util.List<CustomerPaymentTransactionDTO> response = customerService.getCustomerPaymentHistory(userDetails.getId());
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Payment history fetched successfully", response));
     }
+
+    // === POST /api/customer/forgot-password/reset ===
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponseDTO<Void>> resetPasswordWithOtp(
+            @Valid @RequestBody ForgotPasswordResetDTO request) {
+        customerService.resetPasswordWithEmailOtp(request.getEmail(), request.getNewPassword(), request.getConfirmPassword());
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS",
+                "Password reset successfully. A confirmation has been sent to your email.", null));
+    }
 }
 

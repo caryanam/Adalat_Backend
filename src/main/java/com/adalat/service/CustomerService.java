@@ -16,6 +16,8 @@ public interface CustomerService {
 
     void changePassword(Long customerId, ChangePasswordRequestDTO request);
 
+    void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword);
+
     java.util.List<CustomerPaymentTransactionDTO> getCustomerPaymentHistory(Long customerId);
 }
 
