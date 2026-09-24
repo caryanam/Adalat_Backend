@@ -4,6 +4,7 @@ import com.adalat.service.EmailService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -22,6 +23,9 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
+    @Value("${spring.mail.properties.mail.smtp.from:support@awaazmanki.com}")
+    private String fromEmail;
+
     @Override
     @Async
     public void sendVerificationEmail(String to, String name, String otp) {
@@ -29,6 +33,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject("Adalat - Verify Your Email Address");
 
@@ -44,7 +49,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Verification email sent successfully to {}", to);
 
         } catch (Exception e) {
-            log.error("Failed to send verification email to {}: {}", to, e.getMessage());
+            log.error("Failed to send verification email to {}", to, e);
         }
     }
 
@@ -55,6 +60,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject("Adalat Advocate Portal - Verify Your New Email Address");
 
@@ -70,7 +76,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email change OTP sent successfully to {}", to);
 
         } catch (Exception e) {
-            log.error("Failed to send email change OTP to {}: {}", to, e.getMessage());
+            log.error("Failed to send email change OTP to {}", to, e);
         }
     }
 
@@ -81,6 +87,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject("Security Alert: Your Adalat Advocate Password Was Changed");
 
@@ -97,7 +104,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Password change alert email sent successfully to {}", to);
 
         } catch (Exception e) {
-            log.error("Failed to send password change alert to {}: {}", to, e.getMessage());
+            log.error("Failed to send password change alert to {}", to, e);
         }
     }
 }
