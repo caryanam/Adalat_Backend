@@ -125,14 +125,72 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO updateStep2(Long lawyerId, LawyerProfessionalRequestDTO request) {
 
+        if (request == null) {
+            throw new IllegalArgumentException("Professional details request cannot be null.");
+        }
+
+        // BUG-001: Bar Council Enrollment Number Validation
+        String barEnrollment = request.getBarEnrollmentNumber() != null ? request.getBarEnrollmentNumber().trim().toUpperCase() : "";
+        if (barEnrollment.isBlank()) {
+            throw new IllegalArgumentException("Bar Council Enrollment Number is required.");
+        }
+        if (barEnrollment.length() < 5 || !barEnrollment.matches("^[A-Za-z]{1,5}/\\d{1,6}/\\d{4}$")) {
+            throw new IllegalArgumentException("Invalid Bar Council Enrollment format. Expected format: STATE/NUM/YEAR (e.g., MAH/1234/2020 or D/456/2018).");
+        }
+
+        // BUG-005: Years of Experience Validation
+        Integer exp = request.getYearsOfExperience();
+        if (exp == null) {
+            throw new IllegalArgumentException("Years of experience is required.");
+        }
+        if (exp < 0) {
+            throw new IllegalArgumentException("Years of experience cannot be negative. Must be 0 or a positive number.");
+        }
+        if (exp > 70) {
+            throw new IllegalArgumentException("Years of experience cannot exceed 70 years.");
+        }
+
+        // BUG-003: Education Validation
+        String education = request.getEducation() != null ? request.getEducation().trim() : "";
+        if (education.isBlank()) {
+            throw new IllegalArgumentException("Education details are required.");
+        }
+        if (education.length() < 2) {
+            throw new IllegalArgumentException("Education / Qualifications must be at least 2 characters long (e.g., LL.B., B.A. LL.B., LL.M.). A single letter is not accepted.");
+        }
+
+        // BUG-002: Location / Court City Validation
+        String location = request.getLocation() != null ? request.getLocation().trim() : "";
+        if (location.isBlank()) {
+            throw new IllegalArgumentException("Location / Court City is required.");
+        }
+        if (location.length() < 2) {
+            throw new IllegalArgumentException("Location / Court City must be at least 2 characters long. A single letter is not accepted.");
+        }
+        if (!location.matches("^[a-zA-Z\\s.-]+$")) {
+            throw new IllegalArgumentException("Location / Court City can only contain alphabets, spaces, and hyphens. Numbers and special characters are not allowed.");
+        }
+
+        // BUG-004: Bio Validation
+        String bio = request.getBio() != null ? request.getBio().trim() : "";
+        if (bio.isBlank()) {
+            throw new IllegalArgumentException("Professional Bio & Practice Summary is required.");
+        }
+        if (bio.length() < 50) {
+            throw new IllegalArgumentException("Professional Bio must be at least 50 characters long to provide meaningful detail. A single letter or brief text is not accepted (currently " + bio.length() + " characters).");
+        }
+        if (bio.length() > 2000) {
+            throw new IllegalArgumentException("Professional Bio cannot exceed 2000 characters.");
+        }
+
         Lawyer lawyer = findLawyerById(lawyerId);
-        lawyer.setBarEnrollmentNumber(request.getBarEnrollmentNumber());
-        lawyer.setYearsOfExperience(request.getYearsOfExperience());
-        lawyer.setEducation(request.getEducation());
-        lawyer.setLocation(request.getLocation());
+        lawyer.setBarEnrollmentNumber(barEnrollment);
+        lawyer.setYearsOfExperience(exp);
+        lawyer.setEducation(education);
+        lawyer.setLocation(location);
         lawyer.setPracticeAreas(request.getPracticeAreas());
         lawyer.setLanguages(request.getLanguages());
-        lawyer.setBio(request.getBio());
+        lawyer.setBio(bio);
         if (request.getProfilePhotoUrl() != null && !request.getProfilePhotoUrl().isBlank()) {
             lawyer.setProfilePhotoUrl(request.getProfilePhotoUrl());
         }
