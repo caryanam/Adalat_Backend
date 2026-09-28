@@ -134,7 +134,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         if (optionalCustomer.isPresent()) {
             Customer customer = optionalCustomer.get();
             customer.setEmailVerified(true);
-            customer.setEmailVerifiedAt(LocalDateTime.now());
+            //customer.setEmailVerifiedAt(LocalDateTime.now());
             customerRepository.save(customer);
         }
 

@@ -14,6 +14,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.adalat.dto.ai.NextStepRequestDTO;
+import com.adalat.entity.Customer;
+import com.adalat.enums.PaymentStatus;
+import com.adalat.exception.PaymentPendingException;
+import com.adalat.exception.ResourceNotFoundException;
+import com.adalat.repository.CustomerRepository;
 
 @RestController
 @RequestMapping("/api/customer/legal-assistance")
@@ -22,6 +27,7 @@ import com.adalat.dto.ai.NextStepRequestDTO;
 public class CustomerLegalAssistanceController {
 
     private final LegalConversationOrchestrator orchestrator;
+    private final CustomerRepository customerRepository;
 
     @PostMapping("/sessions")
     @Operation(summary = "Get or create active intake session", description = "Resumes an existing active session or initializes a new one for the authenticated customer. Use forceNew=true to abandon current and start over.")
@@ -103,6 +109,11 @@ public class CustomerLegalAssistanceController {
     private Long resolveCustomerId(CustomUserDetails userDetails) {
         if (userDetails == null || userDetails.getId() == null) {
             throw new SecurityException("User must be authenticated to access legal assistance.");
+        }
+        Customer customer = customerRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + userDetails.getId()));
+        if (customer.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new PaymentPendingException("Your payment is pending. Please complete the payment to access the dashboard.");
         }
         return userDetails.getId();
     }

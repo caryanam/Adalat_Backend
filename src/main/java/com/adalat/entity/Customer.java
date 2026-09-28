@@ -62,7 +62,7 @@ public class Customer {
     @Builder.Default
     private Boolean emailVerified = false;
 
-    private LocalDateTime emailVerifiedAt;
+    //private LocalDateTime emailVerifiedAt;
 
     @CreationTimestamp
     @Column(updatable = false)

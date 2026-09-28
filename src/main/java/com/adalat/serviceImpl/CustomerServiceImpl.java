@@ -108,15 +108,15 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.CUSTOMER)
-                .paymentStatus(isPaidUpfront ? PaymentStatus.PAID : PaymentStatus.PAID) // Auto-activate upon ₹99 payment verification
-                .accountStatus(isPaidUpfront ? AccountStatus.ACTIVE : AccountStatus.ACTIVE)
+                .paymentStatus(isPaidUpfront ? PaymentStatus.PAID : PaymentStatus.PENDING)
+                .accountStatus(isPaidUpfront ? AccountStatus.ACTIVE : AccountStatus.INACTIVE)
                 .termsAccepted(request.getTermsAccepted())
                 .privacyPolicyAccepted(request.getPrivacyPolicyAccepted())
                 .emailVerified(true)
                 .build();
 
         Customer saved = customerRepository.save(customer);
-        log.info("New customer registered: id={}, email={}", saved.getCustomerId(), saved.getEmail());
+        log.info("New customer registered: id={}, email={}, paymentStatus={}", saved.getCustomerId(), saved.getEmail(), saved.getPaymentStatus());
 
         // Create and persist PaymentTransaction record in database
         try {
@@ -125,11 +125,11 @@ public class CustomerServiceImpl implements CustomerService {
                     .orderId("TXN-REG-" + saved.getCustomerId() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase())
                     .amount(new java.math.BigDecimal("116.82"))
                     .paymentType("REGISTRATION")
-                    .status(PaymentStatus.PAID)
-                    .gatewayPaymentId(request.getPaymentTransactionId() != null ? request.getPaymentTransactionId() : ("PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase()))
+                    .status(isPaidUpfront ? PaymentStatus.PAID : PaymentStatus.PENDING)
+                    .gatewayPaymentId(isPaidUpfront ? request.getPaymentTransactionId() : null)
                     .build();
             paymentTransactionRepository.save(transaction);
-            log.info("PaymentTransaction saved in DB: orderId={}, customerId={}", transaction.getOrderId(), saved.getCustomerId());
+            log.info("PaymentTransaction saved in DB: orderId={}, customerId={}, status={}", transaction.getOrderId(), saved.getCustomerId(), transaction.getStatus());
         } catch (Exception ex) {
             log.error("Failed to save PaymentTransaction record: {}", ex.getMessage());
         }
@@ -148,29 +148,31 @@ public class CustomerServiceImpl implements CustomerService {
                     "/admin/customers"
             );
 
-            // 2. Admin Notification: Platform registration fee received
-            notificationService.createNotification(
-                    Role.ADMIN,
-                    null,
-                    "Platform Registration Fee Paid",
-                    "₹99 Platform registration fee paid by customer: " + saved.getFullName(),
-                    com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
-                    saved.getCustomerId(),
-                    "PAYMENT",
-                    "/admin/payments"
-            );
+            if (isPaidUpfront) {
+                // 2. Admin Notification: Platform registration fee received
+                notificationService.createNotification(
+                        Role.ADMIN,
+                        null,
+                        "Platform Registration Fee Paid",
+                        "₹99 Platform registration fee paid by customer: " + saved.getFullName(),
+                        com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
+                        saved.getCustomerId(),
+                        "PAYMENT",
+                        "/admin/payments"
+                );
 
-            // 3. Customer Notification: Welcome
-            notificationService.createNotification(
-                    Role.CUSTOMER,
-                    saved.getCustomerId(),
-                    "Welcome to Adalat!",
-                    "Your account has been activated. You can now consult 500+ verified Bar Council advocates across India.",
-                    com.adalat.enums.NotificationType.WELCOME_CUSTOMER,
-                    saved.getCustomerId(),
-                    "CUSTOMER_PROFILE",
-                    "/customer/find-lawyers"
-            );
+                // 3. Customer Notification: Welcome
+                notificationService.createNotification(
+                        Role.CUSTOMER,
+                        saved.getCustomerId(),
+                        "Welcome to Adalat!",
+                        "Your account has been activated. You can now consult 500+ verified Bar Council advocates across India.",
+                        com.adalat.enums.NotificationType.WELCOME_CUSTOMER,
+                        saved.getCustomerId(),
+                        "CUSTOMER_PROFILE",
+                        "/customer/find-lawyers"
+                );
+            }
         } catch (Exception notifEx) {
             log.error("Failed to dispatch registration notifications: {}", notifEx.getMessage());
         }
@@ -181,7 +183,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(saved.getEmail())
                 .mobileNumber(saved.getMobileNumber())
                 .paymentStatus(saved.getPaymentStatus())
-                .message("Registration successful. Please complete the ₹99 payment to activate your account.")
+                .message(isPaidUpfront ? "Registration and activation successful." : "Registration successful. Please complete the ₹99 payment to activate your account.")
                 .build();
     }
 
@@ -205,6 +207,8 @@ public class CustomerServiceImpl implements CustomerService {
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .customer(customer)
                 .orderId(orderId)
+                .amount(new java.math.BigDecimal("116.82"))
+                .paymentType("REGISTRATION")
                 .status(PaymentStatus.PENDING)
                 .build();
 
@@ -246,6 +250,33 @@ public class CustomerServiceImpl implements CustomerService {
                 customer.setPaymentStatus(PaymentStatus.PAID);
                 customer.setAccountStatus(AccountStatus.ACTIVE);
                 customerRepository.save(customer);
+
+                // Send notifications upon activation
+                try {
+                    notificationService.createNotification(
+                            Role.ADMIN,
+                            null,
+                            "Platform Registration Fee Paid",
+                            "₹99 Platform registration fee paid by customer: " + customer.getFullName(),
+                            com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
+                            customer.getCustomerId(),
+                            "PAYMENT",
+                            "/admin/payments"
+                    );
+                    notificationService.createNotification(
+                            Role.CUSTOMER,
+                            customer.getCustomerId(),
+                            "Welcome to Adalat!",
+                            "Your account has been activated. You can now consult 500+ verified Bar Council advocates across India.",
+                            com.adalat.enums.NotificationType.WELCOME_CUSTOMER,
+                            customer.getCustomerId(),
+                            "CUSTOMER_PROFILE",
+                            "/customer/find-lawyers"
+                    );
+                } catch (Exception notifEx) {
+                    log.error("Failed to dispatch payment activation notifications: {}", notifEx.getMessage());
+                }
+
                 return new ApiResponseDTO<>("SUCCESS", "Payment verified successfully. Your account is now active.", null);
             }
         }
@@ -275,6 +306,32 @@ public class CustomerServiceImpl implements CustomerService {
             customer.setPaymentStatus(PaymentStatus.PAID);
             customer.setAccountStatus(AccountStatus.ACTIVE);
             customerRepository.save(customer);
+
+            // Send notifications
+            try {
+                notificationService.createNotification(
+                        Role.ADMIN,
+                        null,
+                        "Platform Registration Fee Paid",
+                        "₹99 Platform registration fee paid by customer: " + customer.getFullName(),
+                        com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
+                        customer.getCustomerId(),
+                        "PAYMENT",
+                        "/admin/payments"
+                );
+                notificationService.createNotification(
+                        Role.CUSTOMER,
+                        customer.getCustomerId(),
+                        "Welcome to Adalat!",
+                        "Your account has been activated. You can now consult 500+ verified Bar Council advocates across India.",
+                        com.adalat.enums.NotificationType.WELCOME_CUSTOMER,
+                        customer.getCustomerId(),
+                        "CUSTOMER_PROFILE",
+                        "/customer/find-lawyers"
+                );
+            } catch (Exception notifEx) {
+                log.error("Failed to dispatch payment activation notifications: {}", notifEx.getMessage());
+            }
         }
 
         log.info("Payment verified: orderId={}", request.getOrderId());
@@ -296,21 +353,9 @@ public class CustomerServiceImpl implements CustomerService {
             throw new BadCredentialsException("Invalid password.");
         }
 
-        // Payment gate — block login until paid
-        if (customer.getPaymentStatus() != PaymentStatus.PAID) {
-            throw new PaymentPendingException(
-                    "Please complete the ₹99 registration payment before logging in."
-            );
-        }
-
         // Email Verification gate
         if (!Boolean.TRUE.equals(customer.getEmailVerified())) {
             throw new IllegalArgumentException("Please verify your email address before logging in.");
-        }
-
-        // Account active gate
-        if (customer.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalArgumentException("Your account is not active. Please contact support.");
         }
 
         // Build CustomUserDetails and generate JWT
@@ -333,7 +378,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .accountStatus(customer.getAccountStatus())
                 .build();
 
-        log.info("Customer login successful: id={}", customer.getCustomerId());
+        log.info("Customer login successful: id={}, paymentStatus={}", customer.getCustomerId(), customer.getPaymentStatus());
 
         return CustomerLoginResponseDTO.builder()
                 .token(token)
@@ -342,10 +387,36 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public CustomerInfoDTO getCustomerProfile(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        return CustomerInfoDTO.builder()
+                .customerId(customer.getCustomerId())
+                .fullName(customer.getFullName())
+                .email(customer.getEmail())
+                .mobileNumber(customer.getMobileNumber())
+                .paymentStatus(customer.getPaymentStatus())
+                .accountStatus(customer.getAccountStatus())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerInfoDTO getCustomerStatus(Long customerId) {
+        return getCustomerProfile(customerId);
+    }
+
+    @Override
     @Transactional
     public CustomerInfoDTO updateProfile(Long customerId, CustomerUpdateProfileRequestDTO request) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        if (customer.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new PaymentPendingException("Your payment is pending. Please complete the payment to access the dashboard.");
+        }
 
         // Check if email is being updated and if it's already taken
         if (!customer.getEmail().equalsIgnoreCase(request.getEmail())) {
@@ -363,7 +434,7 @@ public class CustomerServiceImpl implements CustomerService {
                 throw new IllegalArgumentException("Please verify your new email address with the OTP sent to your email before updating your profile.");
             }
             customer.setEmailVerified(true);
-            customer.setEmailVerifiedAt(LocalDateTime.now());
+            //customer.setEmailVerifiedAt(LocalDateTime.now());
         }
 
         // Check if mobile number is being updated and if it's already taken by someone else
@@ -399,6 +470,10 @@ public class CustomerServiceImpl implements CustomerService {
     public void changePassword(Long customerId, ChangePasswordRequestDTO request) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
+
+        if (customer.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new PaymentPendingException("Your payment is pending. Please complete the payment to access the dashboard.");
+        }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("New password and confirm password do not match.");

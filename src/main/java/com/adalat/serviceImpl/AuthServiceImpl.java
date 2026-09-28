@@ -1,10 +1,14 @@
 package com.adalat.serviceImpl;
 
 import com.adalat.dto.AuthResponseDTO;
+import com.adalat.dto.ForgotPasswordOtpRequestDTO;
+import com.adalat.dto.ForgotPasswordResetDTO;
 import com.adalat.dto.LoginRequestDTO;
+import com.adalat.dto.OtpResponseDTO;
 import com.adalat.entity.Admin;
 import com.adalat.entity.Customer;
 import com.adalat.entity.Lawyer;
+import com.adalat.enums.Role;
 import com.adalat.exception.ResourceNotFoundException;
 import com.adalat.repository.AdminRepository;
 import com.adalat.repository.CustomerRepository;
@@ -60,8 +64,93 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    public OtpResponseDTO sendForgotPasswordOtp(ForgotPasswordOtpRequestDTO request) {
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        Role targetRole = request.getRole();
+
+        String foundName = null;
+        Role foundRole = null;
+
+        if (targetRole != null) {
+            if (targetRole == Role.LAWYER) {
+                Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
+                if (lawyerOpt.isPresent()) {
+                    foundRole = Role.LAWYER;
+                    foundName = lawyerOpt.get().getFullName();
+                } else {
+                    throw new ResourceNotFoundException("No advocate account found with email: " + cleanEmail);
+                }
+            } else if (targetRole == Role.CUSTOMER) {
+                Optional<Customer> customerOpt = customerRepository.findByEmail(cleanEmail);
+                if (customerOpt.isPresent()) {
+                    foundRole = Role.CUSTOMER;
+                    foundName = customerOpt.get().getFullName();
+                } else {
+                    throw new ResourceNotFoundException("No customer account found with email: " + cleanEmail);
+                }
+            } else if (targetRole == Role.ADMIN) {
+                Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+                if (adminOpt.isPresent()) {
+                    foundRole = Role.ADMIN;
+                    foundName = adminOpt.get().getFullName();
+                } else {
+                    throw new ResourceNotFoundException("No admin account found with email: " + cleanEmail);
+                }
+            }
+        }
+
+        if (foundRole == null) {
+            // Auto-detect role across all tables (check Lawyer first, then Customer, then Admin)
+            Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
+            if (lawyerOpt.isPresent()) {
+                foundRole = Role.LAWYER;
+                foundName = lawyerOpt.get().getFullName();
+            } else {
+                Optional<Customer> customerOpt = customerRepository.findByEmail(cleanEmail);
+                if (customerOpt.isPresent()) {
+                    foundRole = Role.CUSTOMER;
+                    foundName = customerOpt.get().getFullName();
+                } else {
+                    Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+                    if (adminOpt.isPresent()) {
+                        foundRole = Role.ADMIN;
+                        foundName = adminOpt.get().getFullName();
+                    }
+                }
+            }
+        }
+
+        if (foundRole == null) {
+            throw new ResourceNotFoundException("No registered account found with email: " + cleanEmail);
+        }
+
+        emailOtpService.generateAndSendOtp(cleanEmail, foundRole, foundName);
+
+        return OtpResponseDTO.builder()
+                .success(true)
+                .message("Verification code sent to " + cleanEmail)
+                .otpExpiresAfterSeconds(300L)
+                .resendAvailableAfterSeconds(120L)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword) {
-        String cleanEmail = email.trim().toLowerCase();
+        resetPasswordWithEmailOtp(ForgotPasswordResetDTO.builder()
+                .email(email)
+                .newPassword(newPassword)
+                .confirmPassword(confirmPassword)
+                .build());
+    }
+
+    @Override
+    @Transactional
+    public void resetPasswordWithEmailOtp(ForgotPasswordResetDTO request) {
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        String newPassword = request.getNewPassword();
+        String confirmPassword = request.getConfirmPassword();
+        String roleStr = request.getRole();
 
         if (!newPassword.equals(confirmPassword)) {
             throw new IllegalArgumentException("New password and confirm password do not match.");
@@ -75,7 +164,58 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Please verify the OTP sent to your registered email before resetting password.");
         }
 
-        // 1. Try Customer
+        // 1. If role was explicitly specified, prioritize that role
+        if (roleStr != null && !roleStr.isBlank()) {
+            if ("LAWYER".equalsIgnoreCase(roleStr)) {
+                Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
+                if (lawyerOpt.isPresent()) {
+                    Lawyer lawyer = lawyerOpt.get();
+                    lawyer.setPassword(passwordEncoder.encode(newPassword));
+                    lawyerRepository.save(lawyer);
+                    emailService.sendPasswordChangeAlert(lawyer.getEmail(), lawyer.getFullName());
+                    log.info("Password reset successfully for advocate: {}", cleanEmail);
+                    return;
+                } else {
+                    throw new ResourceNotFoundException("No advocate account found with email: " + cleanEmail);
+                }
+            } else if ("CUSTOMER".equalsIgnoreCase(roleStr)) {
+                Optional<Customer> customerOpt = customerRepository.findByEmail(cleanEmail);
+                if (customerOpt.isPresent()) {
+                    Customer customer = customerOpt.get();
+                    customer.setPassword(passwordEncoder.encode(newPassword));
+                    customerRepository.save(customer);
+                    emailService.sendPasswordChangeAlert(customer.getEmail(), customer.getFullName());
+                    log.info("Password reset successfully for customer: {}", cleanEmail);
+                    return;
+                } else {
+                    throw new ResourceNotFoundException("No customer account found with email: " + cleanEmail);
+                }
+            } else if ("ADMIN".equalsIgnoreCase(roleStr)) {
+                Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+                if (adminOpt.isPresent()) {
+                    Admin admin = adminOpt.get();
+                    admin.setPassword(passwordEncoder.encode(newPassword));
+                    adminRepository.save(admin);
+                    emailService.sendPasswordChangeAlert(admin.getEmail(), admin.getFullName());
+                    log.info("Password reset successfully for admin: {}", cleanEmail);
+                    return;
+                } else {
+                    throw new ResourceNotFoundException("No admin account found with email: " + cleanEmail);
+                }
+            }
+        }
+
+        // 2. Auto-detect role: check Lawyer, then Customer, then Admin
+        Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
+        if (lawyerOpt.isPresent()) {
+            Lawyer lawyer = lawyerOpt.get();
+            lawyer.setPassword(passwordEncoder.encode(newPassword));
+            lawyerRepository.save(lawyer);
+            emailService.sendPasswordChangeAlert(lawyer.getEmail(), lawyer.getFullName());
+            log.info("Password reset successfully for advocate: {}", cleanEmail);
+            return;
+        }
+
         Optional<Customer> customerOpt = customerRepository.findByEmail(cleanEmail);
         if (customerOpt.isPresent()) {
             Customer customer = customerOpt.get();
@@ -86,18 +226,6 @@ public class AuthServiceImpl implements AuthService {
             return;
         }
 
-        // 2. Try Lawyer
-        Optional<Lawyer> lawyerOpt = lawyerRepository.findByEmail(cleanEmail);
-        if (lawyerOpt.isPresent()) {
-            Lawyer lawyer = lawyerOpt.get();
-            lawyer.setPassword(passwordEncoder.encode(newPassword));
-            lawyerRepository.save(lawyer);
-            emailService.sendPasswordChangeAlert(lawyer.getEmail(), lawyer.getFullName());
-            log.info("Password reset successfully for lawyer: {}", cleanEmail);
-            return;
-        }
-
-        // 3. Try Admin
         Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();

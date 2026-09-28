@@ -18,6 +18,10 @@ public interface CustomerService {
 
     void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword);
 
+    CustomerInfoDTO getCustomerProfile(Long customerId);
+
+    CustomerInfoDTO getCustomerStatus(Long customerId);
+
     java.util.List<CustomerPaymentTransactionDTO> getCustomerPaymentHistory(Long customerId);
 }
 

@@ -2,7 +2,10 @@ package com.adalat.controller;
 
 import com.adalat.dto.ApiResponseDTO;
 import com.adalat.dto.AuthResponseDTO;
+import com.adalat.dto.ForgotPasswordOtpRequestDTO;
+import com.adalat.dto.ForgotPasswordResetDTO;
 import com.adalat.dto.LoginRequestDTO;
+import com.adalat.dto.OtpResponseDTO;
 import com.adalat.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +30,15 @@ public class AuthController {
         );
     }
 
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<ApiResponseDTO<OtpResponseDTO>> sendForgotPasswordOtp(@Valid @RequestBody ForgotPasswordOtpRequestDTO request) {
+        OtpResponseDTO response = authService.sendForgotPasswordOtp(request);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", response.getMessage(), response));
+    }
+
     @PostMapping("/forgot-password/reset")
-    public ResponseEntity<ApiResponseDTO<Void>> resetPassword(@Valid @RequestBody com.adalat.dto.ForgotPasswordResetDTO request) {
-        authService.resetPasswordWithEmailOtp(request.getEmail(), request.getNewPassword(), request.getConfirmPassword());
+    public ResponseEntity<ApiResponseDTO<Void>> resetPassword(@Valid @RequestBody ForgotPasswordResetDTO request) {
+        authService.resetPasswordWithEmailOtp(request);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS",
                 "Password reset successfully. A confirmation has been sent to your email.", null));
     }

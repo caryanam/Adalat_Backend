@@ -16,6 +16,8 @@ public class ForgotPasswordResetDTO {
     @NotBlank(message = "Email address is required")
     private String email;
 
+    private String role; // Optional: LAWYER, CUSTOMER, ADMIN
+
     @NotBlank(message = "New password is required")
     @Size(min = 6, message = "Password must be at least 6 characters long")
     private String newPassword;

@@ -4,6 +4,11 @@ import com.adalat.dto.*;
 import com.adalat.security.CustomUserDetails;
 import com.adalat.service.ConsultationChatService;
 import com.adalat.service.ConsultationRequestService;
+import com.adalat.entity.Customer;
+import com.adalat.enums.PaymentStatus;
+import com.adalat.exception.PaymentPendingException;
+import com.adalat.exception.ResourceNotFoundException;
+import com.adalat.repository.CustomerRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -24,6 +29,19 @@ public class CustomerConsultationController {
     private final ConsultationRequestService consultationRequestService;
     private final ConsultationChatService consultationChatService;
     private final com.adalat.service.LawyerRatingService lawyerRatingService;
+    private final CustomerRepository customerRepository;
+
+    private Customer validateCustomerPaid(CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getId() == null) {
+            throw new SecurityException("Authentication required.");
+        }
+        Customer customer = customerRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found."));
+        if (customer.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new PaymentPendingException("Your payment is pending. Please complete the payment to access the dashboard.");
+        }
+        return customer;
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('CUSTOMER')")
@@ -32,8 +50,8 @@ public class CustomerConsultationController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateConsultationRequestDTO requestDTO) {
 
-        Long customerId = userDetails != null ? userDetails.getId() : 1L;
-        ConsultationRequestResponseDTO created = consultationRequestService.createRequest(customerId, requestDTO);
+        Customer customer = validateCustomerPaid(userDetails);
+        ConsultationRequestResponseDTO created = consultationRequestService.createRequest(customer.getCustomerId(), requestDTO);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation booked successfully.", created));
     }
 
@@ -44,7 +62,8 @@ public class CustomerConsultationController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) String status) {
 
-        List<ConsultationRequestResponseDTO> list = consultationRequestService.getCustomerConsultations(userDetails.getId(), status);
+        Customer customer = validateCustomerPaid(userDetails);
+        List<ConsultationRequestResponseDTO> list = consultationRequestService.getCustomerConsultations(customer.getCustomerId(), status);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultations fetched successfully.", list));
     }
 
@@ -55,7 +74,8 @@ public class CustomerConsultationController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long requestId) {
 
-        ConsultationRequestResponseDTO dto = consultationRequestService.getConsultationForCustomer(userDetails.getId(), requestId);
+        Customer customer = validateCustomerPaid(userDetails);
+        ConsultationRequestResponseDTO dto = consultationRequestService.getConsultationForCustomer(customer.getCustomerId(), requestId);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation details fetched successfully.", dto));
     }
 

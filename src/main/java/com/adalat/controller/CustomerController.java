@@ -55,6 +55,33 @@ public class CustomerController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Login successful", response));
     }
 
+    // === GET /api/customer/me ===
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponseDTO<CustomerInfoDTO>> getMyProfile(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.adalat.security.CustomUserDetails userDetails) {
+
+        CustomerInfoDTO response = customerService.getCustomerProfile(userDetails.getId());
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Profile fetched successfully", response));
+    }
+
+    // === GET /api/customer/status ===
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/status")
+    public ResponseEntity<ApiResponseDTO<CustomerInfoDTO>> getMyStatus(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.adalat.security.CustomUserDetails userDetails) {
+
+        CustomerInfoDTO response = customerService.getCustomerStatus(userDetails.getId());
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Status fetched successfully", response));
+    }
+
+    // === GET /api/customer/{id} ===
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponseDTO<CustomerInfoDTO>> getProfileById(@PathVariable Long id) {
+        CustomerInfoDTO response = customerService.getCustomerProfile(id);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Profile fetched successfully", response));
+    }
+
     // === PUT /api/customer/profile ===
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
     @PutMapping("/profile")
