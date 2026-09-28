@@ -235,12 +235,22 @@ public class CustomerServiceImpl implements CustomerService {
             transaction = paymentTransactionRepository.findByOrderId(request.getOrderId()).orElse(null);
         }
 
-        if (transaction == null && request.getCustomerId() != null) {
-            Customer customer = customerRepository.findById(request.getCustomerId()).orElse(null);
+        Long customerId = request.getCustomerId();
+        if (customerId == null || customerId <= 0) {
+            try {
+                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getPrincipal() instanceof com.adalat.security.CustomUserDetails cud) {
+                    customerId = cud.getId();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (transaction == null && customerId != null) {
+            Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer != null) {
                 transaction = PaymentTransaction.builder()
                         .customer(customer)
-                        .orderId(request.getOrderId() != null ? request.getOrderId() : ("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()))
+                        .orderId(request.getOrderId() != null && !request.getOrderId().isBlank() ? request.getOrderId() : ("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()))
                         .amount(new java.math.BigDecimal("116.82"))
                         .paymentType("REGISTRATION")
                         .status(PaymentStatus.PAID)

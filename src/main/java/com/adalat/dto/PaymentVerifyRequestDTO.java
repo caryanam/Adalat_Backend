@@ -15,10 +15,8 @@ public class PaymentVerifyRequestDTO {
 
     private Long customerId;
 
-    @NotBlank(message = "Order ID is required")
+    // Optional orderId, gatewayPaymentId, and gatewaySignature for verification
     private String orderId;
-
-    // Optional: gateway-provided payment ID and signature for production Razorpay verification
     private String gatewayPaymentId;
     private String gatewaySignature;
 }
