@@ -74,15 +74,23 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO registerStep1(LawyerAccountRequestDTO request) {
 
-        String cleanEmail = request.getEmail().trim().toLowerCase();
-        String mobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+        String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(request.getEmail());
+        if (!com.adalat.util.ValidationUtils.isValidEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Please provide a valid email address.");
+        }
+
+        String rawMobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+        String mobile = com.adalat.util.ValidationUtils.normalizeMobile(rawMobile);
+        if (!com.adalat.util.ValidationUtils.isValidMobile(mobile)) {
+            throw new IllegalArgumentException("Mobile number must be a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).");
+        }
 
         // Duplicate email check across all user types (Advocate, Customer, Admin)
         if (lawyerRepository.existsByEmail(cleanEmail)) {
-            throw new DuplicateResourceException("An advocate with this email already exists.");
+            throw new DuplicateResourceException("This email is already registered to an Advocate account. Please log in instead.");
         }
         if (customerRepository.existsByEmail(cleanEmail)) {
-            throw new DuplicateResourceException("This email is already registered as a Customer account. Please use a different email or log in as a customer.");
+            throw new DuplicateResourceException("This email is already registered to a Customer account. Please log in as a customer or use a different email.");
         }
         if (adminRepository.existsByEmail(cleanEmail)) {
             throw new DuplicateResourceException("This email is already registered with an administrative account.");
@@ -90,14 +98,14 @@ public class LawyerServiceImpl implements LawyerService {
 
         // Duplicate mobile check across all user types
         if (lawyerRepository.existsByMobileNumber(mobile)) {
-            throw new DuplicateResourceException("An advocate with this mobile number already exists.");
+            throw new DuplicateResourceException("This mobile number is already registered to an Advocate account. Please log in instead.");
         }
         if (customerRepository.existsByMobileNumber(mobile)) {
-            throw new DuplicateResourceException("This mobile number is already registered as a Customer account.");
+            throw new DuplicateResourceException("This mobile number is already registered to a Customer account.");
         }
 
         Lawyer lawyer = Lawyer.builder()
-                .fullName(request.getFullName())
+                .fullName(request.getFullName().trim())
                 .email(cleanEmail)
                 .mobileNumber(mobile)
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -507,12 +515,15 @@ public class LawyerServiceImpl implements LawyerService {
             lawyer.setFullName(request.getFullName().trim());
         }
         if (request.getMobileNumber() != null && !request.getMobileNumber().isBlank()) {
-            String cleanMobile = request.getMobileNumber().trim();
+            String cleanMobile = com.adalat.util.ValidationUtils.normalizeMobile(request.getMobileNumber());
+            if (!com.adalat.util.ValidationUtils.isValidMobile(cleanMobile)) {
+                throw new IllegalArgumentException("Mobile number must be a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).");
+            }
             // Check if another lawyer or customer already has this mobile
             lawyerRepository.findByMobileNumber(cleanMobile)
                     .filter(l -> !l.getLawyerId().equals(lawyerId))
                     .ifPresent(l -> {
-                        throw new DuplicateResourceException("This mobile number is already registered by another account.");
+                        throw new DuplicateResourceException("This mobile number is already registered to another advocate account.");
                     });
             customerRepository.findByMobileNumber(cleanMobile).ifPresent(c -> {
                 throw new DuplicateResourceException("This mobile number is already registered to a customer account.");
@@ -577,7 +588,10 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public void sendEmailChangeOtp(Long lawyerId, String newEmail) {
         Lawyer lawyer = findLawyerById(lawyerId);
-        String cleanEmail = newEmail.trim().toLowerCase();
+        String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(newEmail);
+        if (!com.adalat.util.ValidationUtils.isValidEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Please provide a valid email address.");
+        }
 
         if (cleanEmail.equalsIgnoreCase(lawyer.getEmail())) {
             throw new IllegalArgumentException("The new email address cannot be the same as your current email.");
@@ -623,7 +637,7 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO verifyAndUpdateEmail(Long lawyerId, String newEmail, String otp) {
         Lawyer lawyer = findLawyerById(lawyerId);
-        String cleanEmail = newEmail.trim().toLowerCase();
+        String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(newEmail);
 
         // Check if email is already used by another lawyer, customer, or admin
         lawyerRepository.findByEmail(cleanEmail)

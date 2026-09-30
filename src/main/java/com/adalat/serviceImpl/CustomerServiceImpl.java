@@ -71,12 +71,20 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("Password and confirm password do not match.");
         }
 
-        String cleanEmail = request.getEmail().trim().toLowerCase();
-        String mobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+        String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(request.getEmail());
+        if (!com.adalat.util.ValidationUtils.isValidEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Please provide a valid email address.");
+        }
+
+        String rawMobile = request.getMobileNumber() != null ? request.getMobileNumber().trim() : "";
+        String mobile = com.adalat.util.ValidationUtils.normalizeMobile(rawMobile);
+        if (!com.adalat.util.ValidationUtils.isValidMobile(mobile)) {
+            throw new IllegalArgumentException("Mobile number must be a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).");
+        }
 
         // Duplicate email check across all user types (Customer, Advocate, Admin)
         if (customerRepository.existsByEmail(cleanEmail)) {
-            throw new DuplicateResourceException("A customer with this email already exists.");
+            throw new DuplicateResourceException("This email is already registered to a Customer account. Please log in instead.");
         }
         if (lawyerRepository.existsByEmail(cleanEmail)) {
             throw new DuplicateResourceException("This email is already registered as an Advocate account. Please use a different email or log in as an advocate.");
@@ -87,7 +95,7 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Duplicate mobile check across all user types
         if (customerRepository.existsByMobileNumber(mobile)) {
-            throw new DuplicateResourceException("A customer with this mobile number already exists.");
+            throw new DuplicateResourceException("This mobile number is already registered to a Customer account. Please log in instead.");
         }
         if (lawyerRepository.existsByMobileNumber(mobile)) {
             throw new DuplicateResourceException("This mobile number is already registered as an Advocate account.");
@@ -103,9 +111,9 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Build and save customer
         Customer customer = Customer.builder()
-                .fullName(request.getFullName())
-                .mobileNumber(request.getMobileNumber())
-                .email(request.getEmail())
+                .fullName(request.getFullName().trim())
+                .mobileNumber(mobile)
+                .email(cleanEmail)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.CUSTOMER)
                 .paymentStatus(isPaidUpfront ? PaymentStatus.PAID : PaymentStatus.PENDING)
@@ -429,10 +437,10 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         // Check if email is being updated and if it's already taken
-        if (!customer.getEmail().equalsIgnoreCase(request.getEmail())) {
-            String cleanNewEmail = request.getEmail().trim().toLowerCase();
-            if (customerRepository.existsByEmail(cleanNewEmail)) {
-                throw new DuplicateResourceException("Email address is already registered.");
+        String cleanNewEmail = com.adalat.util.ValidationUtils.normalizeEmail(request.getEmail());
+        if (!cleanNewEmail.equalsIgnoreCase(customer.getEmail())) {
+            if (customerRepository.findByEmail(cleanNewEmail).filter(c -> !c.getCustomerId().equals(customerId)).isPresent()) {
+                throw new DuplicateResourceException("This email address is already registered to another Customer account.");
             }
             if (lawyerRepository.existsByEmail(cleanNewEmail)) {
                 throw new DuplicateResourceException("This email address is already registered to an Advocate account.");
@@ -443,24 +451,27 @@ public class CustomerServiceImpl implements CustomerService {
             if (!emailOtpService.isEmailVerified(cleanNewEmail, Role.CUSTOMER)) {
                 throw new IllegalArgumentException("Please verify your new email address with the OTP sent to your email before updating your profile.");
             }
+            customer.setEmail(cleanNewEmail);
             customer.setEmailVerified(true);
-            //customer.setEmailVerifiedAt(LocalDateTime.now());
         }
 
         // Check if mobile number is being updated and if it's already taken by someone else
-        if (!customer.getMobileNumber().equals(request.getMobileNumber())) {
-            String cleanNewMobile = request.getMobileNumber().trim();
-            if (customerRepository.existsByMobileNumber(cleanNewMobile)) {
-                throw new DuplicateResourceException("Mobile number is already registered.");
+        String cleanNewMobile = com.adalat.util.ValidationUtils.normalizeMobile(request.getMobileNumber());
+        if (!com.adalat.util.ValidationUtils.isValidMobile(cleanNewMobile)) {
+            throw new IllegalArgumentException("Mobile number must be a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).");
+        }
+
+        if (!cleanNewMobile.equals(com.adalat.util.ValidationUtils.normalizeMobile(customer.getMobileNumber()))) {
+            if (customerRepository.findByMobileNumber(cleanNewMobile).filter(c -> !c.getCustomerId().equals(customerId)).isPresent()) {
+                throw new DuplicateResourceException("This mobile number is already registered to another Customer account.");
             }
             if (lawyerRepository.existsByMobileNumber(cleanNewMobile)) {
                 throw new DuplicateResourceException("This mobile number is already registered to an Advocate account.");
             }
+            customer.setMobileNumber(cleanNewMobile);
         }
 
-        customer.setFullName(request.getFullName());
-        customer.setEmail(request.getEmail());
-        customer.setMobileNumber(request.getMobileNumber());
+        customer.setFullName(request.getFullName().trim());
         
         customerRepository.save(customer);
         log.info("Customer profile updated: id={}", customerId);

@@ -19,5 +19,6 @@ public class CustomerUpdateProfileRequestDTO {
     private String email;
 
     @NotBlank(message = "Mobile number is required")
+    @jakarta.validation.constraints.Pattern(regexp = "^[6-9]\\d{9}$", message = "Mobile number must be a valid 10-digit Indian mobile number")
     private String mobileNumber;
 }

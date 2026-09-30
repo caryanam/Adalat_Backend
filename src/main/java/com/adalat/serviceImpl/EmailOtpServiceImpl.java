@@ -7,12 +7,15 @@ import com.adalat.entity.Customer;
 import com.adalat.entity.EmailOtp;
 import com.adalat.entity.Lawyer;
 import com.adalat.enums.Role;
+import com.adalat.exception.DuplicateResourceException;
 import com.adalat.exception.ResourceNotFoundException;
+import com.adalat.repository.AdminRepository;
 import com.adalat.repository.CustomerRepository;
 import com.adalat.repository.EmailOtpRepository;
 import com.adalat.repository.LawyerRepository;
 import com.adalat.service.EmailOtpService;
 import com.adalat.service.EmailService;
+import com.adalat.util.ValidationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -34,6 +39,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     private final PasswordEncoder passwordEncoder;
     private final CustomerRepository customerRepository;
     private final LawyerRepository lawyerRepository;
+    private final AdminRepository adminRepository;
 
     private static final int OTP_LENGTH = 6;
     private static final int OTP_VALIDITY_MINUTES = 5;
@@ -43,7 +49,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     @Override
     @Transactional
     public void generateAndSendOtp(String email, Role role, String name) {
-        String cleanEmail = email.trim().toLowerCase();
+        String cleanEmail = ValidationUtils.normalizeEmail(email);
         String otp = generateNumericOtp(OTP_LENGTH);
         String otpHash = otp; 
 
@@ -68,8 +74,52 @@ public class EmailOtpServiceImpl implements EmailOtpService {
 
     @Override
     @Transactional
+    public OtpResponseDTO sendRegistrationOtp(String email, Role role, String name) {
+        String cleanEmail = ValidationUtils.normalizeEmail(email);
+        if (!ValidationUtils.isValidEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Please provide a valid email address.");
+        }
+
+        // Duplicate email validation before sending OTP
+        if (customerRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered to a Customer account. Please sign in or use a different email.");
+        }
+        if (lawyerRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered to an Advocate account. Please sign in or use a different email.");
+        }
+        if (adminRepository.existsByEmail(cleanEmail)) {
+            throw new DuplicateResourceException("This email is already registered to an administrative account.");
+        }
+
+        Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
+        if (optionalOtp.isPresent()) {
+            EmailOtp latestOtp = optionalOtp.get();
+            if (!latestOtp.getUsed() && LocalDateTime.now().isBefore(latestOtp.getResendAvailableAt())) {
+                long retryAfterSeconds = ChronoUnit.SECONDS.between(LocalDateTime.now(), latestOtp.getResendAvailableAt());
+                return OtpResponseDTO.builder()
+                        .success(false)
+                        .message("Please wait before requesting a new OTP.")
+                        .retryAfterSeconds(retryAfterSeconds > 0 ? retryAfterSeconds : 1)
+                        .build();
+            }
+            latestOtp.setUsed(true);
+            emailOtpRepository.save(latestOtp);
+        }
+
+        generateAndSendOtp(cleanEmail, role != null ? role : Role.CUSTOMER, name != null ? name : "User");
+
+        return OtpResponseDTO.builder()
+                .success(true)
+                .message("Verification code sent to " + cleanEmail)
+                .resendAvailableAfterSeconds((long) (RESEND_COOLDOWN_MINUTES * 60))
+                .otpExpiresAfterSeconds((long) (OTP_VALIDITY_MINUTES * 60))
+                .build();
+    }
+
+    @Override
+    @Transactional
     public OtpResponseDTO verifyOtp(VerifyOtpRequestDTO request) {
-        String cleanEmail = request.getEmail().trim().toLowerCase();
+        String cleanEmail = ValidationUtils.normalizeEmail(request.getEmail());
         Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, request.getRole());
 
         if (optionalOtp.isEmpty()) {
@@ -113,9 +163,9 @@ public class EmailOtpServiceImpl implements EmailOtpService {
             
             if (emailOtp.getAttemptCount() >= MAX_ATTEMPTS) {
                 return OtpResponseDTO.builder()
-                        .success(false)
-                        .message("Maximum OTP attempts exceeded. Please request a new OTP.")
-                        .build();
+                    .success(false)
+                    .message("Maximum OTP attempts exceeded. Please request a new OTP.")
+                    .build();
             }
             
             return OtpResponseDTO.builder()
@@ -134,7 +184,6 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         if (optionalCustomer.isPresent()) {
             Customer customer = optionalCustomer.get();
             customer.setEmailVerified(true);
-            //customer.setEmailVerifiedAt(LocalDateTime.now());
             customerRepository.save(customer);
         }
 
@@ -156,7 +205,11 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     @Override
     @Transactional
     public OtpResponseDTO resendOtp(ResendOtpRequestDTO request) {
-        String cleanEmail = request.getEmail().trim().toLowerCase();
+        String cleanEmail = ValidationUtils.normalizeEmail(request.getEmail());
+        if (!ValidationUtils.isValidEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Please provide a valid email address.");
+        }
+
         Role role = request.getRole();
         String name = "User";
 
@@ -169,6 +222,11 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         } else if (customerOpt.isPresent()) {
             role = Role.CUSTOMER;
             name = customerOpt.get().getFullName();
+        } else {
+            // New user registration resend check: ensure email is not taken by another role
+            if (adminRepository.existsByEmail(cleanEmail)) {
+                throw new DuplicateResourceException("This email is already registered to an administrative account.");
+            }
         }
 
         Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
@@ -189,7 +247,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         }
 
         // Generate and send new OTP
-        generateAndSendOtp(cleanEmail, role != null ? role : Role.LAWYER, name);
+        generateAndSendOtp(cleanEmail, role != null ? role : Role.CUSTOMER, name);
 
         return OtpResponseDTO.builder()
                 .success(true)
@@ -201,7 +259,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
 
     @Override
     public OtpResponseDTO getOtpStatus(String email, Role role) {
-        String cleanEmail = email.trim().toLowerCase();
+        String cleanEmail = ValidationUtils.normalizeEmail(email);
         Optional<EmailOtp> optionalOtp = emailOtpRepository.findTopByEmailAndRoleOrderByCreatedAtDesc(cleanEmail, role);
         if (optionalOtp.isEmpty()) {
             optionalOtp = emailOtpRepository.findTopByEmailOrderByCreatedAtDesc(cleanEmail);
@@ -229,7 +287,7 @@ public class EmailOtpServiceImpl implements EmailOtpService {
     @Override
     public boolean isEmailVerified(String email, Role role) {
         if (email == null) return false;
-        String cleanEmail = email.trim().toLowerCase();
+        String cleanEmail = ValidationUtils.normalizeEmail(email);
 
         // 1. Check if ANY verified OTP exists for this email within the last 30 minutes
         Optional<EmailOtp> verifiedOtp = emailOtpRepository.findTopByEmailAndUsedTrueOrderByVerifiedAtDesc(cleanEmail);
@@ -269,6 +327,82 @@ public class EmailOtpServiceImpl implements EmailOtpService {
         }
 
         return false;
+    }
+
+    @Override
+    public Map<String, Object> checkEmailAvailability(String email) {
+        Map<String, Object> response = new HashMap<>();
+        String cleanEmail = ValidationUtils.normalizeEmail(email);
+
+        if (!ValidationUtils.isValidEmail(cleanEmail)) {
+            response.put("exists", false);
+            response.put("valid", false);
+            response.put("message", "Invalid email format.");
+            return response;
+        }
+
+        if (customerRepository.existsByEmail(cleanEmail)) {
+            response.put("exists", true);
+            response.put("valid", true);
+            response.put("role", "CUSTOMER");
+            response.put("message", "This email is already registered to a Customer account. Please sign in or use a different email.");
+            return response;
+        }
+
+        if (lawyerRepository.existsByEmail(cleanEmail)) {
+            response.put("exists", true);
+            response.put("valid", true);
+            response.put("role", "LAWYER");
+            response.put("message", "This email is already registered to an Advocate account. Please sign in or use a different email.");
+            return response;
+        }
+
+        if (adminRepository.existsByEmail(cleanEmail)) {
+            response.put("exists", true);
+            response.put("valid", true);
+            response.put("role", "ADMIN");
+            response.put("message", "This email is already registered to an administrative account.");
+            return response;
+        }
+
+        response.put("exists", false);
+        response.put("valid", true);
+        response.put("message", "Email is available for registration.");
+        return response;
+    }
+
+    @Override
+    public Map<String, Object> checkMobileAvailability(String mobile) {
+        Map<String, Object> response = new HashMap<>();
+        String cleanMobile = ValidationUtils.normalizeMobile(mobile);
+
+        if (!ValidationUtils.isValidMobile(cleanMobile)) {
+            response.put("exists", false);
+            response.put("valid", false);
+            response.put("message", "Mobile number must be a valid 10-digit Indian mobile number (e.g. 9876543210).");
+            return response;
+        }
+
+        if (customerRepository.existsByMobileNumber(cleanMobile)) {
+            response.put("exists", true);
+            response.put("valid", true);
+            response.put("role", "CUSTOMER");
+            response.put("message", "This mobile number is already registered to a Customer account. Please sign in or use a different number.");
+            return response;
+        }
+
+        if (lawyerRepository.existsByMobileNumber(cleanMobile)) {
+            response.put("exists", true);
+            response.put("valid", true);
+            response.put("role", "LAWYER");
+            response.put("message", "This mobile number is already registered to an Advocate account. Please sign in or use a different number.");
+            return response;
+        }
+
+        response.put("exists", false);
+        response.put("valid", true);
+        response.put("message", "Mobile number is available for registration.");
+        return response;
     }
 
     private String generateNumericOtp(int length) {
