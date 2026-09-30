@@ -12,6 +12,11 @@ import lombok.NoArgsConstructor;
 public class CustomerUpdateProfileRequestDTO {
 
     @NotBlank(message = "Full name is required")
+    @jakarta.validation.constraints.Size(min = 3, max = 100, message = "Full name must be at least 3 characters")
+    @jakarta.validation.constraints.Pattern(
+        regexp = "^(?=.*[a-zA-Z].*[a-zA-Z].*[a-zA-Z])[a-zA-Z][a-zA-Z\\s.'-]*[a-zA-Z.]+$",
+        message = "Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. John Doe)"
+    )
     private String fullName;
     
     @NotBlank(message = "Email is required")

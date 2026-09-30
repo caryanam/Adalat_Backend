@@ -17,7 +17,11 @@ import lombok.NoArgsConstructor;
 public class CustomerRegistrationRequestDTO {
 
     @NotBlank(message = "Full name is required")
-    @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+    @Size(min = 3, max = 100, message = "Full name must be at least 3 characters")
+    @Pattern(
+        regexp = "^(?=.*[a-zA-Z].*[a-zA-Z].*[a-zA-Z])[a-zA-Z][a-zA-Z\\s.'-]*[a-zA-Z.]+$",
+        message = "Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. John Doe)"
+    )
     private String fullName;
 
     @NotBlank(message = "Mobile number is required")

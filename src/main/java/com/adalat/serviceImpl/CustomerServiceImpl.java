@@ -71,6 +71,12 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("Password and confirm password do not match.");
         }
 
+        String rawName = request.getFullName() != null ? request.getFullName().trim() : "";
+        String fullName = com.adalat.util.ValidationUtils.normalizeName(rawName);
+        if (!com.adalat.util.ValidationUtils.isValidName(fullName)) {
+            throw new IllegalArgumentException("Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. John Doe).");
+        }
+
         String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(request.getEmail());
         if (!com.adalat.util.ValidationUtils.isValidEmail(cleanEmail)) {
             throw new IllegalArgumentException("Please provide a valid email address.");
@@ -111,7 +117,7 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Build and save customer
         Customer customer = Customer.builder()
-                .fullName(request.getFullName().trim())
+                .fullName(fullName)
                 .mobileNumber(mobile)
                 .email(cleanEmail)
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -471,7 +477,12 @@ public class CustomerServiceImpl implements CustomerService {
             customer.setMobileNumber(cleanNewMobile);
         }
 
-        customer.setFullName(request.getFullName().trim());
+        String rawName = request.getFullName() != null ? request.getFullName().trim() : "";
+        String fullName = com.adalat.util.ValidationUtils.normalizeName(rawName);
+        if (!com.adalat.util.ValidationUtils.isValidName(fullName)) {
+            throw new IllegalArgumentException("Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. John Doe).");
+        }
+        customer.setFullName(fullName);
         
         customerRepository.save(customer);
         log.info("Customer profile updated: id={}", customerId);

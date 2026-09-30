@@ -6,6 +6,8 @@ public final class ValidationUtils {
 
     private static final Pattern INDIAN_MOBILE_PATTERN = Pattern.compile("^[6-9]\\d{9}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final Pattern UPI_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$");
+    private static final Pattern NAME_VALID_CHARS_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z\\s.'-]*[a-zA-Z.]$");
 
     private ValidationUtils() {
         // Utility class
@@ -61,5 +63,47 @@ public final class ValidationUtils {
         }
         String normalized = normalizeEmail(email);
         return EMAIL_PATTERN.matcher(normalized).matches();
+    }
+
+    /**
+     * Validates UPI ID format (e.g. name@upi, 9876543210@paytm).
+     */
+    public static boolean isValidUpiId(String upiId) {
+        if (upiId == null || upiId.isBlank()) {
+            return false;
+        }
+        String trimmed = upiId.trim();
+        return UPI_PATTERN.matcher(trimmed).matches();
+    }
+
+    /**
+     * Validates person/account name.
+     * Rejects single-letter names, single or multiple dots alone (e.g. '.', 'A.', 'AB', '...').
+     * Requires minimum 3 alphabetic letters.
+     */
+    public static boolean isValidName(String name) {
+        if (name == null || name.isBlank()) {
+            return false;
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() < 3) {
+            return false;
+        }
+        // Must contain at least 3 alphabetic characters (A-Z, a-z)
+        long letterCount = trimmed.chars().filter(Character::isLetter).count();
+        if (letterCount < 3) {
+            return false;
+        }
+        return NAME_VALID_CHARS_PATTERN.matcher(trimmed).matches();
+    }
+
+    /**
+     * Normalizes names by trimming and collapsing multiple spaces into a single space.
+     */
+    public static String normalizeName(String name) {
+        if (name == null) {
+            return "";
+        }
+        return name.trim().replaceAll("\\s+", " ");
     }
 }

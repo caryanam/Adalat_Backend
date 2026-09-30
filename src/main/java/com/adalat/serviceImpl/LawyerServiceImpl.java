@@ -74,6 +74,12 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO registerStep1(LawyerAccountRequestDTO request) {
 
+        String rawName = request.getFullName() != null ? request.getFullName().trim() : "";
+        String fullName = com.adalat.util.ValidationUtils.normalizeName(rawName);
+        if (!com.adalat.util.ValidationUtils.isValidName(fullName)) {
+            throw new IllegalArgumentException("Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. Adv. Rajesh Verma).");
+        }
+
         String cleanEmail = com.adalat.util.ValidationUtils.normalizeEmail(request.getEmail());
         if (!com.adalat.util.ValidationUtils.isValidEmail(cleanEmail)) {
             throw new IllegalArgumentException("Please provide a valid email address.");
@@ -105,7 +111,7 @@ public class LawyerServiceImpl implements LawyerService {
         }
 
         Lawyer lawyer = Lawyer.builder()
-                .fullName(request.getFullName().trim())
+                .fullName(fullName)
                 .email(cleanEmail)
                 .mobileNumber(mobile)
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -248,8 +254,12 @@ public class LawyerServiceImpl implements LawyerService {
     @Transactional
     public LawyerProfileResponseDTO updateStep5(Long lawyerId, LawyerUpiRequestDTO request) {
 
+        if (request == null || request.getUpiId() == null || !com.adalat.util.ValidationUtils.isValidUpiId(request.getUpiId())) {
+            throw new IllegalArgumentException("UPI ID must be in a valid format: username@bankhandle (e.g. name@upi, 9876543210@paytm).");
+        }
+
         Lawyer lawyer = findLawyerById(lawyerId);
-        lawyer.setUpiId(request.getUpiId());
+        lawyer.setUpiId(request.getUpiId().trim());
         Lawyer saved = lawyerRepository.save(lawyer);
         log.info("Lawyer Step 5 updated: id={}", lawyerId);
         return toProfileDTO(saved);
@@ -512,7 +522,11 @@ public class LawyerServiceImpl implements LawyerService {
         Lawyer lawyer = findLawyerById(lawyerId);
 
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
-            lawyer.setFullName(request.getFullName().trim());
+            String fullName = com.adalat.util.ValidationUtils.normalizeName(request.getFullName());
+            if (!com.adalat.util.ValidationUtils.isValidName(fullName)) {
+                throw new IllegalArgumentException("Full Name must contain at least 3 alphabetic characters and cannot be single letters or dots (e.g. Adv. Rajesh Verma).");
+            }
+            lawyer.setFullName(fullName);
         }
         if (request.getMobileNumber() != null && !request.getMobileNumber().isBlank()) {
             String cleanMobile = com.adalat.util.ValidationUtils.normalizeMobile(request.getMobileNumber());
@@ -556,8 +570,12 @@ public class LawyerServiceImpl implements LawyerService {
             lawyer.setConsultationFee(fee);
             lawyer.setConsultationRate(ConsultationRate.fromAmount(fee));
         }
-        if (request.getUpiId() != null) {
-            lawyer.setUpiId(request.getUpiId().trim());
+        if (request.getUpiId() != null && !request.getUpiId().isBlank()) {
+            String upi = request.getUpiId().trim();
+            if (!com.adalat.util.ValidationUtils.isValidUpiId(upi)) {
+                throw new IllegalArgumentException("UPI ID must be in a valid format: username@bankhandle (e.g. name@upi, 9876543210@paytm).");
+            }
+            lawyer.setUpiId(upi);
         }
         if (request.getProfilePhotoUrl() != null && !request.getProfilePhotoUrl().isBlank()) {
             lawyer.setProfilePhotoUrl(request.getProfilePhotoUrl().trim());
@@ -794,10 +812,11 @@ public class LawyerServiceImpl implements LawyerService {
     @Override
     @Transactional
     public LawyerProfileResponseDTO updateUpiId(Long lawyerId, String upiId) {
-        Lawyer lawyer = findLawyerById(lawyerId);
-        if (upiId != null && !upiId.isBlank()) {
-            lawyer.setUpiId(upiId.trim());
+        if (upiId == null || !com.adalat.util.ValidationUtils.isValidUpiId(upiId)) {
+            throw new IllegalArgumentException("UPI ID must be in a valid format: username@bankhandle (e.g. name@upi, 9876543210@paytm).");
         }
+        Lawyer lawyer = findLawyerById(lawyerId);
+        lawyer.setUpiId(upiId.trim());
         Lawyer saved = lawyerRepository.save(lawyer);
         log.info("Lawyer UPI ID updated: lawyerId={}, upi={}", lawyerId, upiId);
         return toProfileDTO(saved);

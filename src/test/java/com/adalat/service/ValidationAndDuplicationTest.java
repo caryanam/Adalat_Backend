@@ -238,4 +238,97 @@ public class ValidationAndDuplicationTest {
 
         assertTrue(ex.getMessage().contains("mobile number is already registered"));
     }
+
+    @Test
+    @DisplayName("ValidationUtils: Correctly validates UPI ID formats")
+    void testUpiValidationUtils() {
+        assertTrue(ValidationUtils.isValidUpiId("name@upi"));
+        assertTrue(ValidationUtils.isValidUpiId("john.doe@okaxis"));
+        assertTrue(ValidationUtils.isValidUpiId("9876543210@paytm"));
+        assertTrue(ValidationUtils.isValidUpiId("lawyer_office@icici"));
+        assertTrue(ValidationUtils.isValidUpiId("raj-123@hdfcbank"));
+        assertTrue(ValidationUtils.isValidUpiId("advocate@sbi"));
+
+        assertFalse(ValidationUtils.isValidUpiId(null));
+        assertFalse(ValidationUtils.isValidUpiId(""));
+        assertFalse(ValidationUtils.isValidUpiId("   "));
+        assertFalse(ValidationUtils.isValidUpiId("invalidupi"));
+        assertFalse(ValidationUtils.isValidUpiId("@upi"));
+        assertFalse(ValidationUtils.isValidUpiId("name@"));
+        assertFalse(ValidationUtils.isValidUpiId("a@b")); // too short handle and user
+        assertFalse(ValidationUtils.isValidUpiId("name@123")); // bank handle must be letters
+    }
+
+    @Test
+    @DisplayName("ValidationUtils: Correctly validates Name (rejects single letters, standalone dots, requires min 3 letters)")
+    void testNameValidationUtils() {
+        assertTrue(ValidationUtils.isValidName("John Doe"));
+        assertTrue(ValidationUtils.isValidName("Adv. Rajesh Verma"));
+        assertTrue(ValidationUtils.isValidName("A. P. J. Abdul Kalam"));
+        assertTrue(ValidationUtils.isValidName("O'Connor"));
+        assertTrue(ValidationUtils.isValidName("Mary-Jane Watson"));
+        assertTrue(ValidationUtils.isValidName("Raj"));
+        assertTrue(ValidationUtils.isValidName("Adv. Patil"));
+
+        assertFalse(ValidationUtils.isValidName(null));
+        assertFalse(ValidationUtils.isValidName(""));
+        assertFalse(ValidationUtils.isValidName("   "));
+        assertFalse(ValidationUtils.isValidName("."));
+        assertFalse(ValidationUtils.isValidName(".."));
+        assertFalse(ValidationUtils.isValidName("..."));
+        assertFalse(ValidationUtils.isValidName("A"));
+        assertFalse(ValidationUtils.isValidName("A."));
+        assertFalse(ValidationUtils.isValidName("AB"));
+        assertFalse(ValidationUtils.isValidName("A B"));
+        assertFalse(ValidationUtils.isValidName("1234"));
+        assertFalse(ValidationUtils.isValidName("..A.."));
+    }
+
+    @Test
+    @DisplayName("CustomerService: Rejects registration with invalid name")
+    void testCustomerRegistration_InvalidName() {
+        CustomerRegistrationRequestDTO request = CustomerRegistrationRequestDTO.builder()
+                .fullName(".")
+                .email("john@new.com")
+                .mobileNumber("+91 9876543210")
+                .password("Password123")
+                .confirmPassword("Password123")
+                .termsAccepted(true)
+                .privacyPolicyAccepted(true)
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                customerService.registerCustomer(request));
+
+        assertTrue(ex.getMessage().contains("Full Name must contain at least 3 alphabetic characters"));
+    }
+
+    @Test
+    @DisplayName("LawyerService: Rejects registration with single-letter or dot name")
+    void testLawyerRegistration_InvalidName() {
+        LawyerAccountRequestDTO request = LawyerAccountRequestDTO.builder()
+                .fullName("A.")
+                .email("advjohn@new.com")
+                .mobileNumber("9876543210")
+                .password("Password123")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                lawyerService.registerStep1(request));
+
+        assertTrue(ex.getMessage().contains("Full Name must contain at least 3 alphabetic characters"));
+    }
+
+    @Test
+    @DisplayName("LawyerService: Rejects Step 5 with invalid UPI format")
+    void testLawyerStep5_InvalidUpi() {
+        LawyerUpiRequestDTO request = LawyerUpiRequestDTO.builder()
+                .upiId("invalid-upi")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                lawyerService.updateStep5(1L, request));
+
+        assertTrue(ex.getMessage().contains("UPI ID must be in a valid format"));
+    }
 }
