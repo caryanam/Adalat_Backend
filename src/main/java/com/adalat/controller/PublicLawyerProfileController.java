@@ -22,6 +22,7 @@ public class PublicLawyerProfileController {
 
     private final LawyerRepository lawyerRepository;
     private final LawyerRatingService lawyerRatingService;
+    private final com.adalat.repository.LawyerDocumentRepository lawyerDocumentRepository;
 
     @GetMapping("/{lawyerId}")
     @Operation(summary = "View advocate public profile", description = "Returns public professional info, experience, ratings, and rates")
@@ -29,6 +30,20 @@ public class PublicLawyerProfileController {
         Lawyer lawyer = lawyerRepository.findById(lawyerId)
                 .filter(l -> l.getVerificationStatus() == com.adalat.enums.VerificationStatus.APPROVED)
                 .orElseThrow(() -> new ResourceNotFoundException("Verified advocate not found with ID: " + lawyerId));
+
+                String resolvedPhoto = lawyer.getProfilePhotoUrl();
+        if ((resolvedPhoto == null || resolvedPhoto.isBlank()) && lawyerDocumentRepository != null) {
+            resolvedPhoto = lawyerDocumentRepository.findByLawyer(lawyer).stream()
+                    .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO ||
+                            (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                    .map(com.adalat.entity.LawyerDocument::getFileUrl)
+                    .findFirst()
+                    .orElse(null);
+            if (resolvedPhoto != null && !resolvedPhoto.isBlank()) {
+                lawyer.setProfilePhotoUrl(resolvedPhoto);
+                try { lawyerRepository.save(lawyer); } catch (Exception ignored) {}
+            }
+        }
 
         PublicLawyerProfileDTO profileDTO = PublicLawyerProfileDTO.builder()
                 .lawyerId(lawyer.getLawyerId())
@@ -48,7 +63,7 @@ public class PublicLawyerProfileController {
                 .ratingCount(lawyer.getRatingCount() != null ? lawyer.getRatingCount() : 0)
                 .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
                 .available(lawyer.getAvailable() != null ? lawyer.getAvailable() : true)
-                .profilePhotoUrl(lawyer.getProfilePhotoUrl())
+                .profilePhotoUrl(resolvedPhoto)
                 .build();
 
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Advocate profile fetched successfully.", profileDTO));

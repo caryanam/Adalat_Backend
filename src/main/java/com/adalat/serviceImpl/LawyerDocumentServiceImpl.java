@@ -61,6 +61,10 @@ public class LawyerDocumentServiceImpl implements LawyerDocumentService {
             oldDoc.setVerificationStatus(DocumentVerificationStatus.PENDING);
             LawyerDocument saved = lawyerDocumentRepository.save(oldDoc);
             log.info("Document replaced: lawyerId={}, type={}", lawyerId, documentType);
+            if (documentType == DocumentType.PHOTO) {
+                lawyer.setProfilePhotoUrl(fileUrl);
+                lawyerRepository.save(lawyer);
+            }
             return toDTO(saved);
         }
 

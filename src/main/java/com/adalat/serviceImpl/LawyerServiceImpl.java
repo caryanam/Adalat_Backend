@@ -578,7 +578,10 @@ public class LawyerServiceImpl implements LawyerService {
             lawyer.setUpiId(upi);
         }
         if (request.getProfilePhotoUrl() != null && !request.getProfilePhotoUrl().isBlank()) {
-            lawyer.setProfilePhotoUrl(request.getProfilePhotoUrl().trim());
+            String pUrl = request.getProfilePhotoUrl().trim();
+            if (!pUrl.startsWith("blob:") && !pUrl.startsWith("data:")) {
+                lawyer.setProfilePhotoUrl(pUrl);
+            }
         }
 
         Lawyer saved = lawyerRepository.save(lawyer);
@@ -591,10 +594,46 @@ public class LawyerServiceImpl implements LawyerService {
     public LawyerProfileResponseDTO updateProfilePhoto(Long lawyerId, MultipartFile file) {
         Lawyer lawyer = findLawyerById(lawyerId);
         try {
+            Optional<LawyerDocument> existingDoc = lawyerDocumentRepository.findByLawyerAndDocumentType(lawyer, DocumentType.PHOTO);
+            if (existingDoc.isPresent()) {
+                LawyerDocument oldDoc = existingDoc.get();
+                if (oldDoc.getStoredFileName() != null) {
+                    fileStorageService.deleteFile(lawyerId, oldDoc.getStoredFileName());
+                }
+            } else if (lawyer.getProfilePhotoUrl() != null && !lawyer.getProfilePhotoUrl().isBlank()) {
+                String oldStored = fileStorageService.getStoredFileName(lawyer.getProfilePhotoUrl());
+                fileStorageService.deleteFile(lawyerId, oldStored);
+            }
+
             String fileUrl = fileStorageService.storeFile(lawyerId, file);
+            String storedFileName = fileStorageService.getStoredFileName(fileUrl);
             lawyer.setProfilePhotoUrl(fileUrl);
             Lawyer saved = lawyerRepository.save(lawyer);
-            log.info("Lawyer profile photo updated: lawyerId={}, url={}", lawyerId, fileUrl);
+
+            if (existingDoc.isPresent()) {
+                LawyerDocument doc = existingDoc.get();
+                doc.setOriginalFileName(file.getOriginalFilename());
+                doc.setStoredFileName(storedFileName);
+                doc.setFileUrl(fileUrl);
+                doc.setFileType(file.getContentType());
+                doc.setFileSize(file.getSize());
+                doc.setVerificationStatus(DocumentVerificationStatus.VERIFIED);
+                lawyerDocumentRepository.save(doc);
+            } else {
+                LawyerDocument newDoc = LawyerDocument.builder()
+                        .lawyer(lawyer)
+                        .documentType(DocumentType.PHOTO)
+                        .originalFileName(file.getOriginalFilename())
+                        .storedFileName(storedFileName)
+                        .fileUrl(fileUrl)
+                        .fileType(file.getContentType())
+                        .fileSize(file.getSize())
+                        .verificationStatus(DocumentVerificationStatus.VERIFIED)
+                        .build();
+                lawyerDocumentRepository.save(newDoc);
+            }
+
+            log.info("Lawyer profile photo updated in database: lawyerId={}, url={}", lawyerId, fileUrl);
             return toProfileDTO(saved);
         } catch (IOException e) {
             log.error("Failed to store profile photo for lawyerId={}: {}", lawyerId, e.getMessage());
@@ -884,6 +923,19 @@ public class LawyerServiceImpl implements LawyerService {
                         .build())
                 .collect(Collectors.toList());
 
+                String resolvedPhoto = lawyer.getProfilePhotoUrl();
+        if ((resolvedPhoto == null || resolvedPhoto.isBlank()) && docDTOs != null) {
+            resolvedPhoto = docDTOs.stream()
+                    .filter(d -> d.getDocumentType() == DocumentType.PHOTO ||
+                            (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                    .map(LawyerDocumentResponseDTO::getFileUrl)
+                    .findFirst()
+                    .orElse(null);
+            if (resolvedPhoto != null && !resolvedPhoto.isBlank()) {
+                lawyer.setProfilePhotoUrl(resolvedPhoto);
+                try { lawyerRepository.save(lawyer); } catch (Exception ignored) {}
+            }
+        }
         Integer finalFee = lawyer.getConsultationFee() != null ? lawyer.getConsultationFee()
                 : (lawyer.getConsultationRate() != null ? lawyer.getConsultationRate().getAmount() : 99);
 
@@ -911,7 +963,7 @@ public class LawyerServiceImpl implements LawyerService {
                 .rating(lawyer.getRating() != null ? lawyer.getRating() : 0.0)
                 .ratingCount(lawyer.getRatingCount() != null ? lawyer.getRatingCount() : 0)
                 .totalConsultations(lawyer.getTotalConsultations() != null ? lawyer.getTotalConsultations() : 0)
-                .profilePhotoUrl(lawyer.getProfilePhotoUrl())
+                .profilePhotoUrl(resolvedPhoto)
                 .rejectionReason(lawyer.getRejectionReason())
                 .documents(docDTOs)
                 .createdAt(lawyer.getCreatedAt())
