@@ -21,6 +21,8 @@ public class LawyerAuthController {
             @Valid @RequestBody LoginRequestDTO request) {
 
         LawyerLoginResponseDTO response = lawyerService.loginLawyer(request);
-        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Login successful", response));
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS",
+                "Login successful",
+                response));
     }
 }
