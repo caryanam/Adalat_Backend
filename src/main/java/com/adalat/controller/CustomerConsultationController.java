@@ -214,7 +214,8 @@ public class CustomerConsultationController {
 
         String paymentId = body != null ? body.get("paymentId") : "PAY_MOCK_" + System.currentTimeMillis();
         String amount = body != null ? body.get("amount") : null;
-        ConsultationRequestResponseDTO response = consultationRequestService.unlockPaidConsultation(requestId, paymentId, amount);
+        String duration = body != null ? body.get("durationMinutes") : null;
+        ConsultationRequestResponseDTO response = consultationRequestService.unlockPaidConsultation(requestId, paymentId, amount, duration);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Paid consultation unlocked successfully.", response));
     }
 

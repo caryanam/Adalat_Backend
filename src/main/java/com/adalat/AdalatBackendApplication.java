@@ -21,5 +21,4 @@ public class  AdalatBackendApplication {
 		System.err.println("*       *  *        *******       *****      *     *       *  *     *     *   ");
 
 	}
-
 }

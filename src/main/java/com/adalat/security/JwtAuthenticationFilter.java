@@ -53,22 +53,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // Check if the token has been blacklisted (user logged out)
                 String jti = payload.getId();
-                if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
-                    log.info("Rejected blacklisted JWT with jti={}", jti);
-                    request.setAttribute("error", "Token has been invalidated");
-                    filterChain.doFilter(request, response);
-                    return;
-                }
+                if (jti != null && tokenBlacklistService.isBlacklisted(jti)) { log.info("Rejected blacklisted JWT with jti={}", jti); SecurityContextHolder.clearContext(); response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been invalidated"); return; }
 
                 Long id = Long.valueOf(payload.getSubject());
                 Role role = Role.valueOf(payload.get("role", String.class));
 
                 Optional<CustomUserDetails> maybeUserDetails = resolve(id, role);
 
-                if (maybeUserDetails.isEmpty()) {
-                    log.warn("JWT subject {} ({}) does not match any existing account", id, role);
-                    request.setAttribute("error", "Invalid Token");
-                } else {
+                if (maybeUserDetails.isEmpty()) { log.warn("JWT subject {} ({}) does not match any existing account", id, role); SecurityContextHolder.clearContext(); response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Account no longer exists"); return; } else {
                     CustomUserDetails userDetails = maybeUserDetails.get();
 
                     if (SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -156,3 +148,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.startsWith("/uploads/");
     }
 }
+
+

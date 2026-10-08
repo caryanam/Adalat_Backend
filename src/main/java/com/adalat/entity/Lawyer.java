@@ -25,7 +25,7 @@ public class Lawyer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long lawyerId;
 
-    // ─── Step 1 — Account ─────────────────────────────────────────────────────
+    // â”€â”€â”€ Step 1 â€” Account â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @Column(nullable = false)
     private String fullName;
 
@@ -38,7 +38,7 @@ public class Lawyer {
     @Column(nullable = false)
     private String password;
 
-    // ─── Step 2 — Professional ───────
+    // â”€â”€â”€ Step 2 â€” Professional â”€â”€â”€â”€â”€â”€â”€
     private String barEnrollmentNumber;
 
     private Integer yearsOfExperience;
@@ -64,22 +64,25 @@ public class Lawyer {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    // ─── Step 3 — Documents ───────────────────────────────────────────────────
+    // â”€â”€â”€ Step 3 â€” Documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @OneToMany(mappedBy = "lawyer", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<LawyerDocument> documents = new ArrayList<>();
 
-    // ─── Step 4 — Pricing ─────────────────────────────────────────────────────
+    // â”€â”€â”€ Step 4 â€” Pricing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @Enumerated(EnumType.STRING)
     private ConsultationRate consultationRate;
 
     @Builder.Default
     private Integer consultationFee = 99;
 
-    // ─── Step 5 — UPI ─────────────────────────────────────────────────────────
+    @Builder.Default
+    private Integer consultationDuration = 5;
+
+    // â”€â”€â”€ Step 5 â€” UPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private String upiId;
 
-    // ─── Status Fields ────────────────────────────────────────────────────────
+    // â”€â”€â”€ Status Fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -106,7 +109,7 @@ public class Lawyer {
 
     private LocalDateTime emailVerifiedAt;
 
-    // ─── Profile Enhancements ────────────────────────────────────────────────
+    // â”€â”€â”€ Profile Enhancements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @Builder.Default
     private Boolean available = true;
 
@@ -124,7 +127,7 @@ public class Lawyer {
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
 
-    // ─── Timestamps ───────────────────────────────────────────────────────────
+    // â”€â”€â”€ Timestamps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

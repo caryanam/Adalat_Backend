@@ -61,6 +61,10 @@ public class ConsultationRequest {
 
     private LocalDateTime chatStartedAt;
 
+    private LocalDateTime paidChatStartedAt;
+
+    private Integer paidDurationMinutes;
+
     private Integer rating;
 
     @Column(columnDefinition = "TEXT")

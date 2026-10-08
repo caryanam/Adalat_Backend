@@ -23,6 +23,7 @@ public class ConsultationRequestResponseDTO {
     private String lawyerLocation;
     private String lawyerUpiId;
     private Integer lawyerRate;
+    private Integer lawyerDuration;
     private String lawyerProfileImageUrl;
     private Long remainingSeconds;
     private LegalCategory category;
@@ -39,6 +40,10 @@ public class ConsultationRequestResponseDTO {
     private java.math.BigDecimal paymentAmount;
     private com.adalat.enums.PaymentStatus paymentStatus;
     private LocalDateTime chatStartedAt;
+
+    private LocalDateTime paidChatStartedAt;
+
+    private Integer paidDurationMinutes;
     private Boolean isFreeChatTimeOver;
     private Integer rating;
     private String ratingComment;

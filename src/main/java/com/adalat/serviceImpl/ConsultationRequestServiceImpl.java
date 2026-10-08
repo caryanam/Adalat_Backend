@@ -416,6 +416,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         paymentTransactionRepository.save(transaction);
 
         request.setStatus(ConsultationRequestStatus.ACTIVE);
+        request.setPaidChatStartedAt(LocalDateTime.now());
+        request.setPaidDurationMinutes(request.getLawyer().getConsultationDuration());
         ConsultationRequest saved = consultationRequestRepository.save(request);
 
         log.info("Consultation payment verified: orderId={}, requestId={}, status=ACTIVE",
@@ -429,8 +431,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             notificationService.createNotification(
                     Role.CUSTOMER,
                     saved.getCustomer().getCustomerId(),
-                    "Payment Confirmed • Consultation Active",
-                    "Payment of ₹" + feeAmt + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is now active.",
+                    "Payment Confirmed ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Consultation Active",
+                    "Payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is now active.",
                     com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
                     saved.getId(),
                     "CONSULTATION",
@@ -442,7 +444,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.LAWYER,
                     saved.getLawyer().getLawyerId(),
                     "Consultation Fee Received",
-                    "Client " + saved.getCustomer().getFullName() + " completed payment of ₹" + feeAmt + ". The consultation session is active.",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + ". The consultation session is active.",
                     com.adalat.enums.NotificationType.CONSULTATION_PAID,
                     saved.getId(),
                     "CONSULTATION",
@@ -454,7 +456,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.ADMIN,
                     null,
                     "Consultation Fee Paid",
-                    "Consultation fee ₹" + feeAmt + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    "Consultation fee ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
                     com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
                     saved.getId(),
                     "PAYMENT",
@@ -589,11 +591,15 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         }
 
         Boolean isFreeChatTimeOver = false;
-        long remainingSeconds = 120;
-        if (req.getChatStartedAt() != null) {
+        long remainingSeconds = 180;
+        if (req.getPaidChatStartedAt() != null && req.getPaidDurationMinutes() != null) {
+            long paidElapsedSeconds = Duration.between(req.getPaidChatStartedAt(), LocalDateTime.now()).getSeconds();
+            remainingSeconds = Math.max(0, (req.getPaidDurationMinutes() * 60L) - paidElapsedSeconds);
+            isFreeChatTimeOver = true;
+        } else if (req.getChatStartedAt() != null) {
             long elapsedSeconds = Duration.between(req.getChatStartedAt(), LocalDateTime.now()).getSeconds();
-            remainingSeconds = Math.max(0, 120 - elapsedSeconds);
-            isFreeChatTimeOver = elapsedSeconds >= 120;
+            remainingSeconds = Math.max(0, 180 - elapsedSeconds);
+            isFreeChatTimeOver = elapsedSeconds >= 180;
         }
 
         // Retrieve Lawyer profile photo URL
@@ -622,6 +628,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .lawyerProfileImageUrl(lawyerPhotoUrl)
                 .lawyerUpiId(req.getLawyer().getUpiId() != null && !req.getLawyer().getUpiId().isBlank() ? req.getLawyer().getUpiId() : "advocate@upi")
                 .lawyerRate(req.getLawyer().getConsultationFee() != null ? req.getLawyer().getConsultationFee() : (req.getLawyer().getConsultationRate() != null ? req.getLawyer().getConsultationRate().getAmount() : 99))
+                .lawyerDuration(req.getLawyer().getConsultationDuration())
                 .category(req.getCategory())
                 .categoryDisplayName(req.getCategory() != null ? req.getCategory().getDisplayName() : null)
                 .practiceArea(req.getPracticeArea())
@@ -632,6 +639,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .paymentAmount(req.getPaymentAmount())
                 .paymentStatus(paymentStatus)
                 .chatStartedAt(req.getChatStartedAt())
+                .paidChatStartedAt(req.getPaidChatStartedAt())
+                .paidDurationMinutes(req.getPaidDurationMinutes())
                 .isFreeChatTimeOver(isFreeChatTimeOver)
                 .remainingSeconds(remainingSeconds)
                 .assignedDate(req.getAssignedDate())
@@ -648,28 +657,24 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                 .build();
     }
 
-    @Override
-    @Transactional
-    public ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId) {
-        return unlockPaidConsultation(requestId, paymentId, null);
-    }
+
 
     @Override
     @Transactional
-    public ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId, String amountStr) {
+    public ConsultationRequestResponseDTO unlockPaidConsultation(Long requestId, String paymentId, String amountStr, String durationStr) {
         ConsultationRequest request = consultationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Consultation request not found: " + requestId));
 
         BigDecimal fee = null;
         if (amountStr != null && !amountStr.isBlank()) {
             try {
-                fee = new BigDecimal(amountStr.replace("₹", "").replace(",", "").trim());
+                fee = new BigDecimal(amountStr.replace("ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹", "").replace(",", "").trim());
             } catch (Exception e) {
                 fee = null;
             }
         }
 
-        if (fee == null) {
+                if (fee == null) {
             fee = request.getPaymentAmount() != null
                     ? request.getPaymentAmount()
                     : (request.getLawyer().getConsultationFee() != null
@@ -679,7 +684,18 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                             : new BigDecimal("199.00")));
         }
 
+        Integer dur = null;
+        if (durationStr != null && !durationStr.isBlank()) {
+            try {
+                dur = Integer.parseInt(durationStr);
+            } catch (Exception e) {}
+        } else if (request.getLawyer().getConsultationDuration() != null) {
+            dur = request.getLawyer().getConsultationDuration();
+        }
+
         request.setPaymentAmount(fee);
+        request.setPaidDurationMinutes(dur);
+        request.setPaidChatStartedAt(LocalDateTime.now());
         request.setStatus(ConsultationRequestStatus.PAYMENT_COMPLETED);
         ConsultationRequest saved = consultationRequestRepository.save(request);
 
@@ -717,8 +733,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             notificationService.createNotification(
                     Role.CUSTOMER,
                     saved.getCustomer().getCustomerId(),
-                    "Payment Confirmed • Consultation Active",
-                    "Payment of ₹" + fee + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is active.",
+                    "Payment Confirmed ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Consultation Active",
+                    "Payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is active.",
                     com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
                     saved.getId(),
                     "CONSULTATION",
@@ -730,7 +746,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.LAWYER,
                     saved.getLawyer().getLawyerId(),
                     "Consultation Fee Received",
-                    "Client " + saved.getCustomer().getFullName() + " completed payment of ₹" + fee + ". The consultation session is active.",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + ". The consultation session is active.",
                     com.adalat.enums.NotificationType.CONSULTATION_PAID,
                     saved.getId(),
                     "CONSULTATION",
@@ -742,7 +758,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.ADMIN,
                     null,
                     "Consultation Fee Paid",
-                    "Consultation fee ₹" + fee + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    "Consultation fee ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
                     com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
                     saved.getId(),
                     "PAYMENT",
@@ -755,3 +771,6 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         return toDTO(saved);
     }
 }
+
+
+

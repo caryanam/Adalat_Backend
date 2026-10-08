@@ -28,6 +28,7 @@ public class LawyerProfileResponseDTO {
     private ConsultationRate consultationRate;
     private Integer consultationRateAmount;
     private Integer consultationFee;
+    private Integer consultationDuration;
     private String upiId;
 
     // Status
