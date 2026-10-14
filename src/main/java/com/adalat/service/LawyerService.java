@@ -54,7 +54,7 @@ public interface LawyerService {
 
     void resetPasswordWithEmailOtp(String email, String newPassword, String confirmPassword);
 
-    LawyerProfileResponseDTO updatePricingFee(Long lawyerId, Integer consultationFee);
+    LawyerProfileResponseDTO updatePricingFee(Long lawyerId, Integer consultationFee, Integer consultationDuration);
 
     LawyerProfileResponseDTO updatePracticeAreas(Long lawyerId, Set<PracticeArea> practiceAreas);
 

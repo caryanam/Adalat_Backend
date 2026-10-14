@@ -819,13 +819,17 @@ public class LawyerServiceImpl implements LawyerService {
 
     @Override
     @Transactional
-    public LawyerProfileResponseDTO updatePricingFee(Long lawyerId, Integer consultationFee) {
+    public LawyerProfileResponseDTO updatePricingFee(Long lawyerId, Integer consultationFee, Integer consultationDuration) {
         Lawyer lawyer = findLawyerById(lawyerId);
         int fee = (consultationFee != null && consultationFee >= 0) ? consultationFee : 99;
         lawyer.setConsultationFee(fee);
         lawyer.setConsultationRate(ConsultationRate.fromAmount(fee));
+        
+        if (consultationDuration != null && consultationDuration > 0) {
+            lawyer.setConsultationDuration(consultationDuration);
+        }
+        
         Lawyer saved = lawyerRepository.save(lawyer);
-        log.info("Lawyer pricing updated: lawyerId={}, fee=ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹{}", lawyerId, fee);
         return toProfileDTO(saved);
     }
 
@@ -959,6 +963,7 @@ public class LawyerServiceImpl implements LawyerService {
                 .consultationRate(lawyer.getConsultationRate())
                 .consultationRateAmount(finalFee)
                 .consultationFee(finalFee)
+                  .consultationDuration(lawyer.getConsultationDuration())
                 .upiId(lawyer.getUpiId())
                 .role(lawyer.getRole())
                 .registrationStatus(lawyer.getRegistrationStatus())

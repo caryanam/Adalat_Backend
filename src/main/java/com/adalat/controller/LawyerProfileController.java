@@ -143,7 +143,10 @@ public class LawyerProfileController {
         Integer fee = body.get("consultationFee") != null
                 ? Integer.parseInt(body.get("consultationFee").toString())
                 : (body.get("amount") != null ? Integer.parseInt(body.get("amount").toString()) : 99);
-        LawyerProfileResponseDTO response = lawyerService.updatePricingFee(id, fee);
+        Integer duration = body.get("consultationDuration") != null
+                ? Integer.parseInt(body.get("consultationDuration").toString())
+                : null;
+        LawyerProfileResponseDTO response = lawyerService.updatePricingFee(id, fee, duration);
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Consultation pricing updated.", response));
     }
 
