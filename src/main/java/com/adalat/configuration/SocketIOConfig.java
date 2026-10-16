@@ -6,9 +6,14 @@ import com.adalat.dto.ConsultationSocketMessageRequest;
 import com.adalat.enums.SenderType;
 import com.adalat.security.JwtService;
 import com.adalat.service.ConsultationChatService;
+import com.adalat.service.ConsultationCallService;
+import com.adalat.dto.ConsultationCallDTO;
+import com.adalat.enums.CallType;
 import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.AuthorizationResult;
 import com.corundumstudio.socketio.Configuration;
+import com.corundumstudio.socketio.protocol.JacksonJsonSupport;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
@@ -45,6 +50,7 @@ public class SocketIOConfig {
 
     private final JwtService jwtService;
     private final ConsultationChatService consultationChatService;
+    private final ConsultationCallService consultationCallService;
 
     private SocketIOServer server;
 
@@ -54,6 +60,7 @@ public class SocketIOConfig {
         config.setHostname(host);
         config.setPort(port);
         config.setOrigin("*");
+        config.setJsonSupport(new JacksonJsonSupport(new JavaTimeModule()));
 
         // Handshake Auth Listener - Permissive to prevent handshake drop
         config.setAuthorizationListener(data -> {
@@ -129,6 +136,28 @@ public class SocketIOConfig {
         }
     }
 
+    private Map<String, Object> toCallPayload(ConsultationCallDTO callDTO) {
+        if (callDTO == null) return Map.of();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", callDTO.getId());
+        payload.put("consultationRequestId", callDTO.getConsultationRequestId());
+        payload.put("callerId", callDTO.getCallerId());
+        payload.put("callerRole", callDTO.getCallerRole());
+        payload.put("callerName", callDTO.getCallerName());
+        payload.put("receiverId", callDTO.getReceiverId());
+        payload.put("receiverRole", callDTO.getReceiverRole());
+        payload.put("receiverName", callDTO.getReceiverName());
+        payload.put("callType", callDTO.getCallType() != null ? callDTO.getCallType().name() : "AUDIO");
+        payload.put("status", callDTO.getStatus() != null ? callDTO.getStatus().name() : "RINGING");
+        payload.put("durationSeconds", callDTO.getDurationSeconds() != null ? callDTO.getDurationSeconds() : 0);
+        payload.put("endReason", callDTO.getEndReason());
+        payload.put("startedAt", callDTO.getStartedAt() != null ? callDTO.getStartedAt().toString() : null);
+        payload.put("answeredAt", callDTO.getAnsweredAt() != null ? callDTO.getAnsweredAt().toString() : null);
+        payload.put("endedAt", callDTO.getEndedAt() != null ? callDTO.getEndedAt().toString() : null);
+        payload.put("createdAt", callDTO.getCreatedAt() != null ? callDTO.getCreatedAt().toString() : null);
+        return payload;
+    }
+
     private void registerListeners(SocketIOServer server) {
 
         // Connect Listener
@@ -151,12 +180,15 @@ public class SocketIOConfig {
                     client.set("role", role);
 
                     // Auto-join user-specific and role-specific notification rooms
-                    if (role != null) {
-                        String userRoom = "user:" + role.toUpperCase() + ":" + userId;
-                        String roleRoom = "role:" + role.toUpperCase();
-                        client.joinRoom(userRoom);
-                        client.joinRoom(roleRoom);
-                        log.info("Socket client joined rooms: {} and {}", userRoom, roleRoom);
+                    String normRole = role != null ? role.toUpperCase().replace("ROLE_", "") : null;
+                    client.set("userId", userId);
+                    client.set("role", normRole);
+                    if (normRole != null) {
+                        client.joinRoom("user:" + normRole + ":" + userId);
+                        client.joinRoom("user:" + role.toUpperCase() + ":" + userId);
+                        client.joinRoom("user:" + userId);
+                        client.joinRoom("role:" + normRole);
+                        log.info("Socket client joined rooms: user:{}:{}, user:{}, role:{}", normRole, userId, userId, normRole);
                     }
                 } catch (Exception e) {
                     log.warn("Failed to extract claims on connect: {}", e.getMessage());
@@ -169,6 +201,32 @@ public class SocketIOConfig {
         server.addDisconnectListener(client -> {
             log.info("Socket.IO client disconnected: sessionId={}, userId={}",
                     client.getSessionId(), client.get("userId"));
+        });
+
+        // Socket Authenticate Event (allows explicit token authentication)
+        server.addEventListener("authenticate", Map.class, (client, data, ackSender) -> {
+            String token = data != null && data.get("token") != null ? data.get("token").toString() : null;
+            if (token != null && !token.isBlank()) {
+                try {
+                    Jws<Claims> jws = jwtService.parse(token);
+                    Claims claims = jws.getPayload();
+                    Long userId = Long.valueOf(claims.getSubject());
+                    String role = claims.get("role", String.class);
+                    String normRole = role != null ? role.toUpperCase().replace("ROLE_", "") : null;
+                    client.set("userId", userId);
+                    client.set("role", normRole);
+                    if (normRole != null) {
+                        client.joinRoom("user:" + normRole + ":" + userId);
+                        client.joinRoom("user:" + role.toUpperCase() + ":" + userId);
+                        client.joinRoom("user:" + userId);
+                        client.joinRoom("role:" + normRole);
+                    }
+                    log.info("Socket client successfully authenticated via event: userId={}, role={}", userId, normRole);
+                    client.sendEvent("authenticated", Map.of("status", "SUCCESS", "userId", userId, "role", normRole != null ? normRole : ""));
+                } catch (Exception e) {
+                    log.warn("Socket authenticate event error: {}", e.getMessage());
+                }
+            }
         });
 
         // Direct message broadcast handler
@@ -317,7 +375,235 @@ public class SocketIOConfig {
                 log.info("Client {} left room {}", client.getSessionId(), roomName);
             }
         });
-    }
+    
+        // ==================== WEBRTC AUDIO/VIDEO CALLING EVENTS ====================
+
+        // 1. Call Initiate Event
+        server.addEventListener("call_initiate", Map.class, (client, data, ackSender) -> {
+            Long userId = client.get("userId");
+            String role = client.get("role");
+
+            if (userId == null || role == null || data == null || data.get("consultationRequestId") == null) {
+                client.sendEvent("call_error", Map.of("message", "Invalid call request. Authentication and consultationRequestId are required."));
+                return;
+            }
+
+            try {
+                Long requestId = Long.valueOf(data.get("consultationRequestId").toString());
+                String callTypeStr = data.get("callType") != null ? data.get("callType").toString() : "AUDIO";
+                CallType callType = "VIDEO".equalsIgnoreCase(callTypeStr) ? CallType.VIDEO : CallType.AUDIO;
+
+                ConsultationCallDTO callDTO = consultationCallService.initiateCall(requestId, userId, role, callType);
+
+                // Notify recipient via private user room and consultation room
+                String receiverRole = callDTO.getReceiverRole() != null ? callDTO.getReceiverRole().toUpperCase().replace("ROLE_", "") : "USER";
+                String receiverRoom = "user:" + receiverRole + ":" + callDTO.getReceiverId();
+                String fallbackUserRoom = "user:" + callDTO.getReceiverId();
+                String consultationRoom = "consultation:" + requestId;
+
+                Map<String, Object> callPayload = toCallPayload(callDTO);
+                server.getRoomOperations(receiverRoom).sendEvent("incoming_call", callPayload);
+                server.getRoomOperations(fallbackUserRoom).sendEvent("incoming_call", callPayload);
+                server.getRoomOperations(consultationRoom).sendEvent("incoming_call", callPayload);
+
+                // Send confirmation to caller
+                client.sendEvent("call_initiated", callPayload);
+                if (ackSender != null && ackSender.isAckRequested()) {
+                    ackSender.sendAckData(callPayload);
+                }
+
+                log.info("Call initiated successfully: callId={}, from {}:{} to {}:{}", 
+                        callDTO.getId(), role, userId, callDTO.getReceiverRole(), callDTO.getReceiverId());
+            } catch (IllegalStateException e) {
+                if ("RECEIVER_BUSY".equals(e.getMessage())) {
+                    client.sendEvent("call_busy", Map.of("message", "The recipient is currently on another call."));
+                } else if ("CALLER_ALREADY_IN_CALL".equals(e.getMessage())) {
+                    client.sendEvent("call_error", Map.of("message", "You are already on an active call."));
+                } else {
+                    client.sendEvent("call_error", Map.of("message", e.getMessage()));
+                }
+            } catch (Exception e) {
+                log.error("Failed to initiate call", e);
+                client.sendEvent("call_error", Map.of("message", e.getMessage() != null ? e.getMessage() : "Internal server error initiating call."));
+            }
+        });
+
+        // 2. Call Response Event (ACCEPT, REJECT, BUSY, TIMEOUT)
+        server.addEventListener("call_response", Map.class, (client, data, ackSender) -> {
+            Long userId = client.get("userId");
+            String role = client.get("role");
+
+            if (userId == null || role == null || data == null || data.get("callId") == null || data.get("response") == null) {
+                client.sendEvent("call_error", Map.of("message", "Invalid call response payload."));
+                return;
+            }
+
+            try {
+                Long callId = Long.valueOf(data.get("callId").toString());
+                String response = data.get("response").toString();
+
+                ConsultationCallDTO callDTO = consultationCallService.respondToCall(callId, userId, role, response);
+
+                String callerRole = callDTO.getCallerRole() != null ? callDTO.getCallerRole().toUpperCase().replace("ROLE_", "") : "USER";
+                String callerRoom = "user:" + callerRole + ":" + callDTO.getCallerId();
+                String fallbackCallerRoom = "user:" + callDTO.getCallerId();
+                String consultationRoom = "consultation:" + callDTO.getConsultationRequestId();
+
+                Map<String, Object> callPayload = toCallPayload(callDTO);
+                if ("ACCEPT".equalsIgnoreCase(response)) {
+                    server.getRoomOperations(callerRoom).sendEvent("call_accepted", callPayload);
+                    server.getRoomOperations(fallbackCallerRoom).sendEvent("call_accepted", callPayload);
+                    server.getRoomOperations(consultationRoom).sendEvent("call_accepted", callPayload);
+                    client.sendEvent("call_accepted", callPayload);
+                } else if ("REJECT".equalsIgnoreCase(response)) {
+                    server.getRoomOperations(callerRoom).sendEvent("call_rejected", callPayload);
+                    server.getRoomOperations(fallbackCallerRoom).sendEvent("call_rejected", callPayload);
+                    server.getRoomOperations(consultationRoom).sendEvent("call_rejected", callPayload);
+                    client.sendEvent("call_rejected", callPayload);
+                } else if ("BUSY".equalsIgnoreCase(response)) {
+                    server.getRoomOperations(callerRoom).sendEvent("call_busy", callPayload);
+                    server.getRoomOperations(fallbackCallerRoom).sendEvent("call_busy", callPayload);
+                    server.getRoomOperations(consultationRoom).sendEvent("call_busy", callPayload);
+                    client.sendEvent("call_busy", callPayload);
+                } else if ("TIMEOUT".equalsIgnoreCase(response)) {
+                    server.getRoomOperations(callerRoom).sendEvent("call_missed", callPayload);
+                    server.getRoomOperations(fallbackCallerRoom).sendEvent("call_missed", callPayload);
+                    server.getRoomOperations(consultationRoom).sendEvent("call_missed", callPayload);
+                    client.sendEvent("call_missed", callPayload);
+                }
+
+                if (ackSender != null && ackSender.isAckRequested()) {
+                    ackSender.sendAckData(callPayload);
+                }
+
+                log.info("Call response handled: callId={}, response={}", callId, response);
+            } catch (Exception e) {
+                log.error("Failed to process call response", e);
+                client.sendEvent("call_error", Map.of("message", e.getMessage() != null ? e.getMessage() : "Error processing call response."));
+            }
+        });
+
+        // 3. WebRTC Offer Relay
+        server.addEventListener("webrtc_offer", Map.class, (client, data, ackSender) -> {
+            if (data != null && data.get("consultationRequestId") != null) {
+                Long senderId = client.get("userId");
+                String senderRole = client.get("role");
+                Map<String, Object> payload = new HashMap<>(data);
+                if (senderId != null) payload.put("senderId", senderId);
+                if (senderRole != null) payload.put("senderRole", senderRole);
+
+                if (data.get("targetUserId") != null) {
+                    if (data.get("targetRole") != null) {
+                        String targetRole = data.get("targetRole").toString().toUpperCase().replace("ROLE_", "");
+                        String targetRoom = "user:" + targetRole + ":" + data.get("targetUserId");
+                        server.getRoomOperations(targetRoom).sendEvent("webrtc_offer", payload);
+                    }
+                    server.getRoomOperations("user:" + data.get("targetUserId")).sendEvent("webrtc_offer", payload);
+                }
+
+                String consultationRoom = "consultation:" + data.get("consultationRequestId");
+                for (SocketIOClient roomClient : server.getRoomOperations(consultationRoom).getClients()) {
+                    if (!roomClient.getSessionId().equals(client.getSessionId())) {
+                        roomClient.sendEvent("webrtc_offer", payload);
+                    }
+                }
+                log.info("Relayed webrtc_offer for call {} from {}:{} to target {}:{}", 
+                        data.get("callId"), senderRole, senderId, data.get("targetRole"), data.get("targetUserId"));
+            }
+        });
+
+        // 4. WebRTC Answer Relay
+        server.addEventListener("webrtc_answer", Map.class, (client, data, ackSender) -> {
+            if (data != null && data.get("consultationRequestId") != null) {
+                Long senderId = client.get("userId");
+                String senderRole = client.get("role");
+                Map<String, Object> payload = new HashMap<>(data);
+                if (senderId != null) payload.put("senderId", senderId);
+                if (senderRole != null) payload.put("senderRole", senderRole);
+
+                if (data.get("targetUserId") != null) {
+                    if (data.get("targetRole") != null) {
+                        String targetRole = data.get("targetRole").toString().toUpperCase().replace("ROLE_", "");
+                        String targetRoom = "user:" + targetRole + ":" + data.get("targetUserId");
+                        server.getRoomOperations(targetRoom).sendEvent("webrtc_answer", payload);
+                    }
+                    server.getRoomOperations("user:" + data.get("targetUserId")).sendEvent("webrtc_answer", payload);
+                }
+
+                String consultationRoom = "consultation:" + data.get("consultationRequestId");
+                for (SocketIOClient roomClient : server.getRoomOperations(consultationRoom).getClients()) {
+                    if (!roomClient.getSessionId().equals(client.getSessionId())) {
+                        roomClient.sendEvent("webrtc_answer", payload);
+                    }
+                }
+                log.info("Relayed webrtc_answer for call {} from {}:{} to target {}:{}", 
+                        data.get("callId"), senderRole, senderId, data.get("targetRole"), data.get("targetUserId"));
+            }
+        });
+
+        // 5. WebRTC ICE Candidate Relay
+        server.addEventListener("webrtc_ice_candidate", Map.class, (client, data, ackSender) -> {
+            if (data != null && data.get("consultationRequestId") != null) {
+                Long senderId = client.get("userId");
+                String senderRole = client.get("role");
+                Map<String, Object> payload = new HashMap<>(data);
+                if (senderId != null) payload.put("senderId", senderId);
+                if (senderRole != null) payload.put("senderRole", senderRole);
+
+                if (data.get("targetUserId") != null) {
+                    if (data.get("targetRole") != null) {
+                        String targetRole = data.get("targetRole").toString().toUpperCase().replace("ROLE_", "");
+                        String targetRoom = "user:" + targetRole + ":" + data.get("targetUserId");
+                        server.getRoomOperations(targetRoom).sendEvent("webrtc_ice_candidate", payload);
+                    }
+                    server.getRoomOperations("user:" + data.get("targetUserId")).sendEvent("webrtc_ice_candidate", payload);
+                }
+
+                String consultationRoom = "consultation:" + data.get("consultationRequestId");
+                for (SocketIOClient roomClient : server.getRoomOperations(consultationRoom).getClients()) {
+                    if (!roomClient.getSessionId().equals(client.getSessionId())) {
+                        roomClient.sendEvent("webrtc_ice_candidate", payload);
+                    }
+                }
+            }
+        });
+
+        // 6. Call End Event
+        server.addEventListener("call_end", Map.class, (client, data, ackSender) -> {
+            Long userId = client.get("userId");
+            if (userId == null || data == null || data.get("callId") == null) {
+                return;
+            }
+
+            try {
+                Long callId = Long.valueOf(data.get("callId").toString());
+                String reason = data.get("reason") != null ? data.get("reason").toString() : "NORMAL";
+
+                ConsultationCallDTO callDTO = consultationCallService.endCall(callId, userId, reason);
+
+                String consultationRoom = "consultation:" + callDTO.getConsultationRequestId();
+                String callerRole = callDTO.getCallerRole() != null ? callDTO.getCallerRole().toUpperCase().replace("ROLE_", "") : "USER";
+                String receiverRole = callDTO.getReceiverRole() != null ? callDTO.getReceiverRole().toUpperCase().replace("ROLE_", "") : "USER";
+                String callerRoom = "user:" + callerRole + ":" + callDTO.getCallerId();
+                String receiverRoom = "user:" + receiverRole + ":" + callDTO.getReceiverId();
+
+                Map<String, Object> callPayload = toCallPayload(callDTO);
+                server.getRoomOperations(consultationRoom).sendEvent("call_ended", callPayload);
+                server.getRoomOperations(callerRoom).sendEvent("call_ended", callPayload);
+                server.getRoomOperations("user:" + callDTO.getCallerId()).sendEvent("call_ended", callPayload);
+                server.getRoomOperations(receiverRoom).sendEvent("call_ended", callPayload);
+                server.getRoomOperations("user:" + callDTO.getReceiverId()).sendEvent("call_ended", callPayload);
+
+                if (ackSender != null && ackSender.isAckRequested()) {
+                    ackSender.sendAckData(callPayload);
+                }
+                log.info("Call ended: callId={}, duration={}s, reason={}", callId, callDTO.getDurationSeconds(), reason);
+            } catch (Exception e) {
+                log.error("Failed to end call", e);
+            }
+        });
+
+}
 
     @PostConstruct
     public void startServer() {
