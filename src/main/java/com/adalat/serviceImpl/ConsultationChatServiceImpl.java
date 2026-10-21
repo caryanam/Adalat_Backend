@@ -267,8 +267,7 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
                 List<com.adalat.entity.LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(msg.getConsultationRequest().getLawyer());
                 if (docs != null && !docs.isEmpty()) {
                     senderProfileImageUrl = docs.stream()
-                            .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO ||
-                                         (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                            .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO )
                             .map(com.adalat.entity.LawyerDocument::getFileUrl)
                             .findFirst()
                             .orElse(null);
@@ -295,3 +294,4 @@ public class ConsultationChatServiceImpl implements ConsultationChatService {
                 .build();
     }
 }
+

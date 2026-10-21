@@ -34,8 +34,7 @@ public class PublicLawyerProfileController {
                 String resolvedPhoto = lawyer.getProfilePhotoUrl();
         if ((resolvedPhoto == null || resolvedPhoto.isBlank()) && lawyerDocumentRepository != null) {
             resolvedPhoto = lawyerDocumentRepository.findByLawyer(lawyer).stream()
-                    .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO ||
-                            (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                    .filter(d -> d.getDocumentType() == com.adalat.enums.DocumentType.PHOTO)
                     .map(com.adalat.entity.LawyerDocument::getFileUrl)
                     .findFirst()
                     .orElse(null);
@@ -88,3 +87,4 @@ public class PublicLawyerProfileController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Rating submitted successfully.", review));
     }
 }
+

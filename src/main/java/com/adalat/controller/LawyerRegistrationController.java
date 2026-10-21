@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/lawyers/register")
 @RequiredArgsConstructor
@@ -19,7 +21,7 @@ public class LawyerRegistrationController {
     private final LawyerService lawyerService;
     private final LawyerDocumentService lawyerDocumentService;
 
-    // ─── STEP 1 — Account ─────────────────────────────────────────────────────
+    // ─── STEP 1 ─── Account ──────────────────────────────────────────────────────────
     @PostMapping("/step1")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> step1(
             @Valid @RequestBody LawyerAccountRequestDTO request) {
@@ -31,14 +33,14 @@ public class LawyerRegistrationController {
                         response));
     }
 
-    // ─── GET Public Advocates Directory ──────────────────────────────────────
+    // ─── GET Public Advocates Directory ──────────────────────────────────────────
     @GetMapping("/directory")
-    public ResponseEntity<ApiResponseDTO<java.util.List<LawyerProfileResponseDTO>>> getPublicDirectory() {
-        java.util.List<LawyerProfileResponseDTO> response = lawyerService.getPublicDirectoryLawyers();
+    public ResponseEntity<ApiResponseDTO<List<LawyerProfileResponseDTO>>> getPublicDirectory() {
+        List<LawyerProfileResponseDTO> response = lawyerService.getPublicDirectoryLawyers();
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Public advocate directory retrieved.", response));
     }
 
-    // ─── GET Lawyer Registration Progress ────────────────────────────────────
+    // ─── GET Lawyer Registration Progress ──────────────────────────────────────────
     @GetMapping("/{lawyerId}")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> getRegistrationProgress(
             @PathVariable Long lawyerId) {
@@ -47,7 +49,7 @@ public class LawyerRegistrationController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Lawyer registration details retrieved.", response));
     }
 
-    // ─── STEP 2 — Professional Details ────────────────────────────────────────
+    // ─── STEP 2 ─── Professional Details ──────────────────────────────────────────
     @PutMapping("/{lawyerId}/step2")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> step2(
             @PathVariable Long lawyerId,
@@ -57,7 +59,7 @@ public class LawyerRegistrationController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 2 completed.", response));
     }
 
-    // ─── STEP 3 — Document Upload ──────────────────────────────────────────────
+    // ─── STEP 3 ─── Document Upload ──────────────────────────────────────────
     @PostMapping("/{lawyerId}/step3")
     public ResponseEntity<ApiResponseDTO<LawyerDocumentResponseDTO>> step3(
             @PathVariable Long lawyerId,
@@ -68,7 +70,26 @@ public class LawyerRegistrationController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 3 completed. Document uploaded successfully.", response));
     }
 
-    // ─── STEP 4 — Pricing ─────────────────────────────────────────────────────
+    // ─── STEP 3 ─── Delete Document ──────────────────────────────────────────
+    @DeleteMapping("/{lawyerId}/step3/{documentType}")
+    public ResponseEntity<ApiResponseDTO<Void>> deleteStep3Document(
+            @PathVariable Long lawyerId,
+            @PathVariable DocumentType documentType) {
+
+        lawyerDocumentService.deleteDocument(lawyerId, documentType);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Document removed successfully.", null));
+    }
+
+    // ─── GET Lawyer Documents ──────────────────────────────────────────
+    @GetMapping("/{lawyerId}/documents")
+    public ResponseEntity<ApiResponseDTO<List<LawyerDocumentResponseDTO>>> getRegistrationDocuments(
+            @PathVariable Long lawyerId) {
+
+        List<LawyerDocumentResponseDTO> response = lawyerDocumentService.getLawyerDocuments(lawyerId);
+        return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Lawyer documents retrieved successfully.", response));
+    }
+
+    // ─── STEP 4 ─── Pricing ──────────────────────────────────────────
     @PutMapping("/{lawyerId}/step4")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> step4(
             @PathVariable Long lawyerId,
@@ -78,7 +99,7 @@ public class LawyerRegistrationController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 4 completed.", response));
     }
 
-    // ─── STEP 5 — UPI ─────────────────────────────────────────────────────────
+    // ─── STEP 5 ─── UPI ──────────────────────────────────────────
     @PutMapping("/{lawyerId}/step5")
     public ResponseEntity<ApiResponseDTO<LawyerProfileResponseDTO>> step5(
             @PathVariable Long lawyerId,
@@ -88,7 +109,7 @@ public class LawyerRegistrationController {
         return ResponseEntity.ok(new ApiResponseDTO<>("SUCCESS", "Step 5 completed.", response));
     }
 
-    // ─── STEP 6 — Submit ──────────────────────────────────────────────────────
+    // ─── STEP 6 ─── Submit ──────────────────────────────────────────
     @PutMapping("/{lawyerId}/submit")
     public ResponseEntity<ApiResponseDTO<LawyerSubmitResponseDTO>> submit(
             @PathVariable Long lawyerId) {

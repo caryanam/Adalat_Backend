@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,10 @@ public class LawyerDocumentServiceImpl implements LawyerDocumentService {
         Lawyer lawyer = lawyerRepository.findById(lawyerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lawyer not found with ID: " + lawyerId));
 
+        if (documentType == null) {
+            throw new IllegalArgumentException("Document type must be specified.");
+        }
+
         // Store the physical file and get HTTP URL
         String fileUrl;
         try {
@@ -46,12 +52,14 @@ public class LawyerDocumentServiceImpl implements LawyerDocumentService {
 
         String storedFileName = fileStorageService.getStoredFileName(fileUrl);
 
-        // If a document of this type already exists for this lawyer → replace it
+        // If a document of this type already exists for this lawyer - replace it
         Optional<LawyerDocument> existing = lawyerDocumentRepository.findByLawyerAndDocumentType(lawyer, documentType);
         if (existing.isPresent()) {
             LawyerDocument oldDoc = existing.get();
             // Delete old physical file
-            fileStorageService.deleteFile(lawyerId, oldDoc.getStoredFileName());
+            if (oldDoc.getStoredFileName() != null) {
+                fileStorageService.deleteFile(lawyerId, oldDoc.getStoredFileName());
+            }
             // Update existing record
             oldDoc.setOriginalFileName(file.getOriginalFilename());
             oldDoc.setStoredFileName(storedFileName);
@@ -89,6 +97,39 @@ public class LawyerDocumentServiceImpl implements LawyerDocumentService {
 
         log.info("Document uploaded: lawyerId={}, type={}, url={}", lawyerId, documentType, fileUrl);
         return toDTO(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LawyerDocumentResponseDTO> getLawyerDocuments(Long lawyerId) {
+        Lawyer lawyer = lawyerRepository.findById(lawyerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lawyer not found with ID: " + lawyerId));
+
+        return lawyerDocumentRepository.findByLawyer(lawyer)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteDocument(Long lawyerId, DocumentType documentType) {
+        Lawyer lawyer = lawyerRepository.findById(lawyerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lawyer not found with ID: " + lawyerId));
+
+        Optional<LawyerDocument> existing = lawyerDocumentRepository.findByLawyerAndDocumentType(lawyer, documentType);
+        if (existing.isPresent()) {
+            LawyerDocument doc = existing.get();
+            if (doc.getStoredFileName() != null) {
+                fileStorageService.deleteFile(lawyerId, doc.getStoredFileName());
+            }
+            lawyerDocumentRepository.delete(doc);
+            log.info("Document deleted: lawyerId={}, type={}", lawyerId, documentType);
+            if (documentType == DocumentType.PHOTO) {
+                lawyer.setProfilePhotoUrl(null);
+                lawyerRepository.save(lawyer);
+            }
+        }
     }
 
     private LawyerDocumentResponseDTO toDTO(LawyerDocument doc) {

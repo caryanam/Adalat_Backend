@@ -52,7 +52,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final com.adalat.service.NotificationService notificationService;
 
 
-    // ─── 1. REGISTER ───────────────────────────────────────────────────────────
+    // â”€â”€â”€ 1. REGISTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -112,7 +112,7 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("Please verify your email address before registering.");
         }
 
-        // Check if payment transaction ID was supplied during registration (₹99 paid upfront in modal)
+        // Check if payment transaction ID was supplied during registration (â‚¹99 paid upfront in modal)
         boolean isPaidUpfront = request.getPaymentTransactionId() != null && !request.getPaymentTransactionId().isBlank();
 
         // Build and save customer
@@ -168,7 +168,7 @@ public class CustomerServiceImpl implements CustomerService {
                         Role.ADMIN,
                         null,
                         "Platform Registration Fee Paid",
-                        "₹99 Platform registration fee paid by customer: " + saved.getFullName(),
+                        "â‚¹99 Platform registration fee paid by customer: " + saved.getFullName(),
                         com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
                         saved.getCustomerId(),
                         "PAYMENT",
@@ -197,11 +197,11 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(saved.getEmail())
                 .mobileNumber(saved.getMobileNumber())
                 .paymentStatus(saved.getPaymentStatus())
-                .message(isPaidUpfront ? "Registration and activation successful." : "Registration successful. Please complete the ₹99 payment to activate your account.")
+                .message(isPaidUpfront ? "Registration and activation successful." : "Registration successful. Please complete the â‚¹99 payment to activate your account.")
                 .build();
     }
 
-    // ─── 2. INITIATE PAYMENT ────────────────────────────────────────────────────
+    // â”€â”€â”€ 2. INITIATE PAYMENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -234,11 +234,11 @@ public class CustomerServiceImpl implements CustomerService {
                 .amount(transaction.getAmount())
                 .customerId(customer.getCustomerId())
                 .currency("INR")
-                .message("Payment order created. Amount: ₹99. Please complete the payment.")
+                .message("Payment order created. Amount: â‚¹99. Please complete the payment.")
                 .build();
     }
 
-    // ─── 3. VERIFY PAYMENT ─────────────────────────────────────────────────────
+    // â”€â”€â”€ 3. VERIFY PAYMENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -291,7 +291,7 @@ public class CustomerServiceImpl implements CustomerService {
                             Role.ADMIN,
                             null,
                             "Platform Registration Fee Paid",
-                            "₹99 Platform registration fee paid by customer: " + customer.getFullName(),
+                            "â‚¹99 Platform registration fee paid by customer: " + customer.getFullName(),
                             com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
                             customer.getCustomerId(),
                             "PAYMENT",
@@ -347,7 +347,7 @@ public class CustomerServiceImpl implements CustomerService {
                         Role.ADMIN,
                         null,
                         "Platform Registration Fee Paid",
-                        "₹99 Platform registration fee paid by customer: " + customer.getFullName(),
+                        "â‚¹99 Platform registration fee paid by customer: " + customer.getFullName(),
                         com.adalat.enums.NotificationType.PLATFORM_FEE_PAID,
                         customer.getCustomerId(),
                         "PAYMENT",
@@ -372,7 +372,7 @@ public class CustomerServiceImpl implements CustomerService {
         return new ApiResponseDTO<>("SUCCESS", "Payment verified successfully. Your account is now active.", null);
     }
 
-    // ─── 4. CUSTOMER LOGIN ──────────────────────────────────────────────────────
+    // â”€â”€â”€ 4. CUSTOMER LOGIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public CustomerLoginResponseDTO loginCustomer(LoginRequestDTO request) {
@@ -618,7 +618,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .lawyerName(lawyerName)
                     .lawyerProfileImageUrl(lawyerProfileImageUrl)
                     .category(category)
-                    .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                    .amount("â‚¹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
                     .amountNum(totalAmt)
                     .baseAmount(baseAmt.toString())
                     .gstAmount(gstAmt.toString())
@@ -663,7 +663,7 @@ public class CustomerServiceImpl implements CustomerService {
                         .lawyerName(lName)
                         .lawyerProfileImageUrl(lPhoto)
                         .category(cat)
-                        .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                        .amount("â‚¹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
                         .amountNum(totalAmt)
                         .baseAmount(baseAmt.toString())
                         .gstAmount(gstAmt.toString())
@@ -690,7 +690,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .paymentType("REGISTRATION")
                     .serviceDescription("Adalat Customer Account Activation & Lifetime Escrow")
                     .serviceSubDescription("One-time registration and platform escrow enablement")
-                    .amount("₹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
+                    .amount("â‚¹" + totalAmt.setScale(2, RoundingMode.HALF_UP).toString())
                     .amountNum(totalAmt)
                     .baseAmount(baseAmt.toString())
                     .gstAmount(gstAmt.toString())
@@ -711,8 +711,7 @@ public class CustomerServiceImpl implements CustomerService {
             List<LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(lawyer);
             if (docs != null && !docs.isEmpty()) {
                 lawyerPhotoUrl = docs.stream()
-                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO ||
-                                     (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO )
                         .map(LawyerDocument::getFileUrl)
                         .findFirst()
                         .orElse(null);
@@ -721,4 +720,5 @@ public class CustomerServiceImpl implements CustomerService {
         return lawyerPhotoUrl;
     }
 }
+
 

@@ -431,8 +431,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             notificationService.createNotification(
                     Role.CUSTOMER,
                     saved.getCustomer().getCustomerId(),
-                    "Payment Confirmed ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Consultation Active",
-                    "Payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is now active.",
+                    "Payment Confirmed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Consultation Active",
+                    "Payment of ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + feeAmt + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is now active.",
                     com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
                     saved.getId(),
                     "CONSULTATION",
@@ -444,7 +444,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.LAWYER,
                     saved.getLawyer().getLawyerId(),
                     "Consultation Fee Received",
-                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + ". The consultation session is active.",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + feeAmt + ". The consultation session is active.",
                     com.adalat.enums.NotificationType.CONSULTATION_PAID,
                     saved.getId(),
                     "CONSULTATION",
@@ -456,7 +456,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.ADMIN,
                     null,
                     "Consultation Fee Paid",
-                    "Consultation fee ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + feeAmt + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    "Consultation fee ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + feeAmt + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
                     com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
                     saved.getId(),
                     "PAYMENT",
@@ -608,8 +608,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             List<LawyerDocument> docs = lawyerDocumentRepository.findByLawyer(req.getLawyer());
             if (docs != null && !docs.isEmpty()) {
                 lawyerPhotoUrl = docs.stream()
-                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO ||
-                                     (d.getFileUrl() != null && d.getFileUrl().toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif)$")))
+                        .filter(d -> d.getDocumentType() == DocumentType.PHOTO )
                         .map(LawyerDocument::getFileUrl)
                         .findFirst()
                         .orElse(null);
@@ -668,7 +667,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         BigDecimal fee = null;
         if (amountStr != null && !amountStr.isBlank()) {
             try {
-                fee = new BigDecimal(amountStr.replace("ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹", "").replace(",", "").trim());
+                fee = new BigDecimal(amountStr.replace("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹", "").replace(",", "").trim());
             } catch (Exception e) {
                 fee = null;
             }
@@ -733,8 +732,8 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
             notificationService.createNotification(
                     Role.CUSTOMER,
                     saved.getCustomer().getCustomerId(),
-                    "Payment Confirmed ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Consultation Active",
-                    "Payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is active.",
+                    "Payment Confirmed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Consultation Active",
+                    "Payment of ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + fee + " confirmed for consultation with Adv. " + saved.getLawyer().getFullName() + ". Chat room is active.",
                     com.adalat.enums.NotificationType.PAYMENT_CONFIRMED,
                     saved.getId(),
                     "CONSULTATION",
@@ -746,7 +745,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.LAWYER,
                     saved.getLawyer().getLawyerId(),
                     "Consultation Fee Received",
-                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + ". The consultation session is active.",
+                    "Client " + saved.getCustomer().getFullName() + " completed payment of ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + fee + ". The consultation session is active.",
                     com.adalat.enums.NotificationType.CONSULTATION_PAID,
                     saved.getId(),
                     "CONSULTATION",
@@ -758,7 +757,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
                     Role.ADMIN,
                     null,
                     "Consultation Fee Paid",
-                    "Consultation fee ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹" + fee + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
+                    "Consultation fee ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹" + fee + " received for Request #" + saved.getId() + " (Client: " + saved.getCustomer().getFullName() + ", Advocate: " + saved.getLawyer().getFullName() + ").",
                     com.adalat.enums.NotificationType.CONSULTATION_PAYMENT_LOGGED,
                     saved.getId(),
                     "PAYMENT",
@@ -771,6 +770,7 @@ public class ConsultationRequestServiceImpl implements ConsultationRequestServic
         return toDTO(saved);
     }
 }
+
 
 
 
