@@ -38,7 +38,10 @@ public class AdminPaymentController {
             map.put("payoutReceiver", isReg ? "ADALAT Platform Pool" : "Advocate Account");
             map.put("type", isReg ? "CUSTOMER_REGISTRATION" : "LAWYER_CONSULTATION");
             map.put("typeLabel", isReg ? "Customer Registration Fee" : "Advocate Consultation Fee");
-            map.put("amount", "₹" + (tx.getAmount() != null ? tx.getAmount().toString() : "99.00"));
+            map.put("currency", "INR");
+            map.put("currencySymbol", "\u20B9");
+            String formattedAmount = "\u20B9" + (tx.getAmount() != null ? String.format(Locale.ENGLISH, "%.2f", tx.getAmount()) : "99.00");
+            map.put("amount", formattedAmount);
             map.put("amountNum", tx.getAmount() != null ? tx.getAmount().doubleValue() : 99.0);
             map.put("date", tx.getCreatedAt() != null ? tx.getCreatedAt().format(formatter) : "Today");
             map.put("status", tx.getStatus() != null ? tx.getStatus().name() : "PAID");
